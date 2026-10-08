@@ -28,7 +28,7 @@ export class AuthUi {
   private recoveryMode = false;
   private session: Session | null = null;
   private stateCallback: (state: AuthState) => void;
-  private unsubscribe = () => undefined;
+  private unsubscribe: () => void = () => {};
 
   constructor(onState: (state: AuthState) => void) {
     this.stateCallback = onState;
