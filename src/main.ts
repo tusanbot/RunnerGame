@@ -5,6 +5,8 @@ import { loadLocalProgress, saveCloudProgress, saveLocalProgress, type PlayerPro
 import { finishSecureRun, startSecureRun } from './services/runnerRewards';
 import { claimMission, getMissionSnapshot, type MissionSnapshot } from './services/missions';
 import { ShopUi } from './ui/shopUi';
+import { getCharacterProgress, type CharacterProgress } from './services/characterProgression';
+import { CharacterProgressUi } from './ui/characterProgressUi';
 
 type Character = { id:string; name:string; color:number; accent:number; ability:string; speed:number; jump:number; };
 const characters:Character[]=[
@@ -21,6 +23,7 @@ class RunnerScene extends Phaser.Scene{
   playerY=0; velocityY=0; groundY=0; obstacles:Phaser.GameObjects.Container[]=[]; coinObjs:Phaser.GameObjects.Arc[]=[];
   ui!:Phaser.GameObjects.Text; coinText!:Phaser.GameObjects.Text; missionText!:Phaser.GameObjects.Text; lastSpawn=0; lastCoin=0;
   missionSnapshot:MissionSnapshot|null=null;
+  characterProgress:CharacterProgress[]=[];
   progress:PlayerProgress=loadLocalProgress() ?? {userId:'guest',displayName:'بازیکن',coins:0,bestDistance:0,level:1,xp:0,activeCharacterId:'amirreza',unlockedCharacterIds:['amirreza'],inventory:{},completedMissionIds:[],updatedAt:new Date().toISOString()};
   constructor(){super('RunnerScene');}
   setProgress(progress:PlayerProgress){
@@ -28,12 +31,20 @@ class RunnerScene extends Phaser.Scene{
     const preferred=characters.find(c=>c.id===progress.activeCharacterId && progress.unlockedCharacterIds.includes(c.id));
     if(preferred) this.selected=preferred;
     if(!this.running) this.showCharacterSelect();
+    void this.refreshCharacterProgress();
   }
   persistProgress(){
     this.progress={...this.progress,coins:Math.max(0,this.progress.coins),bestDistance:Math.max(this.progress.bestDistance,Math.floor(this.distance)),activeCharacterId:this.selected.id,updatedAt:new Date().toISOString()};
     saveLocalProgress(this.progress);
     if(this.progress.userId!=='guest') void saveCloudProgress(this.progress);
   }
+  async refreshCharacterProgress(){
+    if(this.progress.userId==='guest'){this.characterProgress=[];return;}
+    const snapshot=await getCharacterProgress();
+    this.characterProgress=snapshot.characters;
+    if(!this.running)this.showCharacterSelect();
+  }
+  selectedCharacterProgress(){return this.characterProgress.find(x=>x.characterId===this.selected.id);}
   async refreshMissions(){
     if(this.progress.userId==='guest'){ this.missionSnapshot=null; return; }
     this.missionSnapshot=await getMissionSnapshot();
@@ -60,6 +71,7 @@ class RunnerScene extends Phaser.Scene{
     this.drawWorld();
     this.showCharacterSelect();
     void this.refreshMissions();
+    void this.refreshCharacterProgress();
     this.input.on('pointerdown',(p:Phaser.Input.Pointer)=>this.tap(p.x,p.y));
     this.input.on('pointermove',(p:Phaser.Input.Pointer)=>{if(p.isDown){}});
     this.input.keyboard?.on('keydown-LEFT',()=>this.changeLane(-1));
@@ -93,6 +105,7 @@ class RunnerScene extends Phaser.Scene{
       if(unlocked) card.on('pointerdown',()=>{this.selected=c;this.startGame();});
     });
     this.add.text(w/2,h-28,`🪙 موجودی: ${this.progress.coins}  •  برای شروع روی یک شخصیت بزن`,{fontFamily:'Arial',fontSize:'14px',color:'#94a3b8'}).setOrigin(.5);
+    if(this.progress.userId!=='guest') this.add.text(w/2,h-58,'⭐ ارتقا و باز کردن شخصیت‌ها از دکمه بالای صفحه',{fontFamily:'Arial',fontSize:'13px',color:'#c4b5fd'}).setOrigin(.5);
   }
   makeCharacter(x:number,y:number,c:Character,scale=1){
     const group=this.add.container(x,y).setScale(scale).setData('runnerActor',true);
@@ -104,10 +117,14 @@ class RunnerScene extends Phaser.Scene{
     group.add(body); return group;
   }
   startGame(){
-    this.clearActors(); this.distance=0;this.coins=0;this.speed=390;this.lane=1;this.velocityY=0;this.playerY=0;this.lastSpawn=0;this.lastCoin=0;this.secureRunId=null;
+    this.clearActors(); this.distance=0;this.coins=0;
+    const stats=this.selectedCharacterProgress();
+    const base=characters.find(c=>c.id===this.selected.id) ?? this.selected;
+    this.speed=390 + ((stats?.speed ?? base.speed)-base.speed)*20;this.lane=1;this.velocityY=0;this.playerY=0;this.lastSpawn=0;this.lastCoin=0;this.secureRunId=null;
     if(this.progress.userId!=='guest') void startSecureRun().then(runId=>{if(this.running)this.secureRunId=runId;});
     const w=this.scale.width,h=this.scale.height;
     this.player=this.makeCharacter(this.laneX(),this.groundY-48,this.selected,1);
+    const jumpStrength=13 + ((stats?.jump ?? base.jump)-base.jump)*0.7;
     this.ui=this.add.text(22,20,'',{fontFamily:'Arial',fontSize:'19px',fontStyle:'bold',color:'#fff'}).setDepth(20);
     this.coinText=this.add.text(w-22,20,'🪙 0',{fontFamily:'Arial',fontSize:'19px',fontStyle:'bold',color:'#fbbf24'}).setOrigin(1,0).setDepth(20);
     this.missionText=this.add.text(w/2,54,this.missionSummary(),{fontFamily:'Arial',fontSize:'14px',color:'#cbd5e1'}).setOrigin(.5).setDepth(20).setInteractive({useHandCursor:true});
@@ -134,7 +151,7 @@ class RunnerScene extends Phaser.Scene{
   positionLaneObject(o:Phaser.GameObjects.GameObject,lane:number){o.x=this.scale.width+80; o.y=(o.y as number); (o as any).x+=lane===0?-this.scale.width/6:lane===2?this.scale.width/6:0;}
   laneX(){return this.scale.width/2+(this.lane-1)*Math.min(150,this.scale.width*.25);}
   changeLane(n:number){if(!this.running)return;this.lane=Phaser.Math.Clamp(this.lane+n,0,2);}
-  jump(){if(this.running&&this.playerY===0)this.velocityY=-13;}
+  jump(){if(this.running&&this.playerY===0)this.velocityY=-jumpStrength;}
   tap(x:number,y:number){if(!this.running)return; if(y<this.scale.height*.45)this.jump();else this.changeLane(x<this.scale.width/2?-1:1);}
   async gameOver(){
     if(!this.running)return;
@@ -149,7 +166,7 @@ class RunnerScene extends Phaser.Scene{
     if(this.progress.userId!=='guest'){
       const runId=this.secureRunId;
       if(runId){
-        const reward=await finishSecureRun(runId,finalDistance,collectedCoins);
+        const reward=await finishSecureRun(runId,finalDistance,collectedCoins,this.selected.id);
         if(reward){
           awardedCoins=reward.awardedCoins;
           awardedXp=reward.awardedXp;
