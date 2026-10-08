@@ -46,9 +46,7 @@ grant select, insert, update (display_name, active_character_id, unlocked_charac
   on public.runner_player_progress to authenticated;
 
 
-create schema if not exists private;
-
-create or replace function private.claim_runner_run(
+create or replace function public.claim_runner_run(
   p_run_id uuid,
   p_user_id uuid,
   p_distance integer,
@@ -155,5 +153,5 @@ begin
 end;
 $$;
 
-revoke all on function private.claim_runner_run(uuid, uuid, integer, integer) from public, anon, authenticated;
-grant execute on function private.claim_runner_run(uuid, uuid, integer, integer) to service_role;
+revoke all on function public.claim_runner_run(uuid, uuid, integer, integer) from public, anon, authenticated;
+grant execute on function public.claim_runner_run(uuid, uuid, integer, integer) to service_role;
