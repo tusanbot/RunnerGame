@@ -9,6 +9,7 @@ import { clearRunnerLoadout, getRunnerLoadout, type RunnerLoadout } from './serv
 import { getCharacterProgress, type CharacterProgress } from './services/characterProgression';
 import { CharacterProgressUi } from './ui/characterProgressUi';
 import { LeaderboardUi } from './ui/leaderboardUi';
+import { getRunnerStage, RUNNER_STAGES, type RunnerStage } from './game/stages';
 
 type Character = {
   id: string;
@@ -78,6 +79,10 @@ class RunnerScene extends Phaser.Scene {
   turboUntil = 0;
   baseRunSpeed = 390;
   effectsText!: Phaser.GameObjects.Text;
+  stage!: RunnerStage;
+  stageBadge!: Phaser.GameObjects.Container;
+  stageToast?: Phaser.GameObjects.Container;
+  stageAtmosphere!: Phaser.GameObjects.Rectangle;
 
   progress: PlayerProgress =
     loadLocalProgress() ??
@@ -187,6 +192,9 @@ class RunnerScene extends Phaser.Scene {
     this.groundY = this.scale.height * 0.78;
 
     this.drawWorld();
+    this.stage = RUNNER_STAGES[0];
+    this.stageAtmosphere = this.add.rectangle(w, h, 0, 0, 0x000000, 0).setOrigin(0).setDepth(1);
+    this.createStageBadge();
     this.createSpeedLines();
     this.showCharacterSelect();
     void this.refreshMissions();
@@ -272,6 +280,85 @@ class RunnerScene extends Phaser.Scene {
       const half = 24 + t * w * 0.42;
       g.lineBetween(w / 2 - half, y, w / 2 + half, y);
     }
+  }
+
+  createStageBadge() {
+    const w = this.scale.width;
+    const panel = this.add.rectangle(0, 0, 236, 48, 0x020617, 0.76)
+      .setOrigin(0)
+      .setStrokeStyle(1, 0x334155, 0.9);
+    const title = this.add.text(16, 8, '', {
+      fontFamily: 'Arial',
+      fontSize: '15px',
+      fontStyle: 'bold',
+      color: '#fff',
+    });
+    const subtitle = this.add.text(16, 28, '', {
+      fontFamily: 'Arial',
+      fontSize: '10px',
+      color: '#cbd5e1',
+    });
+    this.stageBadge = this.add.container(14, 122, [panel, title, subtitle]).setDepth(20);
+    this.stageBadge.setVisible(false);
+    this.stageBadge.setData('title', title);
+    this.stageBadge.setData('subtitle', subtitle);
+  }
+
+  updateStagePresentation(initial = false) {
+    const next = getRunnerStage(this.distance);
+    if (!this.stage || next.id !== this.stage.id) {
+      const previous = this.stage;
+      this.stage = next;
+      if (!initial && previous && previous.id !== next.id) {
+        this.showStageToast(next);
+      }
+    }
+
+    if (!this.stageBadge) return;
+    const title = this.stageBadge.getData('title') as Phaser.GameObjects.Text;
+    const subtitle = this.stageBadge.getData('subtitle') as Phaser.GameObjects.Text;
+    title.setText(`مرحله ${this.stage.id} • ${this.stage.name}`);
+    subtitle.setText(this.stage.subtitle);
+    title.setColor(`#${this.stage.accent.toString(16).padStart(6, '0')}`);
+    this.stageBadge.setVisible(this.running);
+
+    if (this.stageAtmosphere) {
+      this.stageAtmosphere.setSize(this.scale.width, this.scale.height);
+      this.stageAtmosphere.setFillStyle(this.stage.tint, this.stage.id === 1 ? 0.015 : 0.035);
+    }
+  }
+
+  showStageToast(stage: RunnerStage) {
+    this.stageToast?.destroy();
+    const w = this.scale.width;
+    const panel = this.add.rectangle(0, 0, Math.min(330, w - 32), 92, 0x020617, 0.92)
+      .setOrigin(0.5)
+      .setStrokeStyle(2, stage.accent, 0.85);
+    const title = this.add.text(0, -18, `مرحله ${stage.id}: ${stage.name}`, {
+      fontFamily: 'Arial',
+      fontSize: '22px',
+      fontStyle: 'bold',
+      color: '#fff',
+    }).setOrigin(0.5);
+    const subtitle = this.add.text(0, 18, stage.subtitle, {
+      fontFamily: 'Arial',
+      fontSize: '13px',
+      color: '#cbd5e1',
+    }).setOrigin(0.5);
+    this.stageToast = this.add.container(w / 2, 165, [panel, title, subtitle]).setDepth(40).setAlpha(0);
+    this.tweens.add({
+      targets: this.stageToast,
+      alpha: 1,
+      y: 145,
+      duration: 300,
+      ease: 'Cubic.easeOut',
+      hold: 1300,
+      yoyo: true,
+      onComplete: () => {
+        this.stageToast?.destroy();
+        this.stageToast = undefined;
+      },
+    });
   }
 
   createSpeedLines() {
@@ -479,6 +566,7 @@ class RunnerScene extends Phaser.Scene {
     this.clearActors();
 
     this.distance = 0;
+    this.stage = RUNNER_STAGES[0];
     this.coins = 0;
     this.lane = 1;
     this.velocityY = 0;
@@ -486,6 +574,7 @@ class RunnerScene extends Phaser.Scene {
     this.lastSpawn = 0;
     this.lastCoin = 0;
     this.playerState = 'idle';
+    this.updateStagePresentation(true);
     this.obstacleCount = 0;
     this.slideUntil = 0;
     this.secureRunId = null;
@@ -572,7 +661,9 @@ class RunnerScene extends Phaser.Scene {
 
     this.distance += this.speed * d / 10;
     this.worldTime += dt;
-    this.speed = Math.min(this.runEffects.turbo ? 900 : 780, this.speed + d * 7);
+    this.updateStagePresentation();
+    const normalStageCap = this.stage.maxSpeed;
+    this.speed = Math.min(this.runEffects.turbo ? 900 : normalStageCap, this.speed + d * 7);
     if (this.runEffects.turbo && this.time.now < this.turboUntil) {
       this.speed = Math.min(900, Math.max(this.speed, this.baseRunSpeed + 155));
     } else if (this.runEffects.turbo && this.turboUntil > 0) {
@@ -611,13 +702,17 @@ class RunnerScene extends Phaser.Scene {
     this.lastSpawn += dt;
     this.lastCoin += dt;
 
-    const spawnInterval = Math.max(430, 930 - this.distance * 1.35);
+    const spawnInterval = Phaser.Math.Clamp(
+      Phaser.Math.Between(this.stage.spawnMinMs, this.stage.spawnMaxMs) - this.distance * 0.025,
+      this.stage.spawnMinMs,
+      this.stage.spawnMaxMs,
+    );
     if (this.lastSpawn >= spawnInterval) {
-      this.spawnObstacle();
+      this.spawnObstaclePattern();
       this.lastSpawn = 0;
     }
 
-    if (this.lastCoin >= 300) {
+    if (this.lastCoin >= (this.stage.id >= 3 ? 270 : 300)) {
       this.spawnCoinPattern();
       this.lastCoin = 0;
     }
@@ -736,12 +831,24 @@ class RunnerScene extends Phaser.Scene {
     this.coinObjs = this.coinObjs.filter((x) => x !== coin);
   }
 
-  spawnObstacle() {
-    const lane = Phaser.Math.Between(0, 2);
-    const kind: 'ground' | 'overhead' =
-      this.obstacleCount > 2 && Phaser.Math.Between(0, 4) === 0 ? 'overhead' : 'ground';
+  spawnObstaclePattern() {
+    const firstLane = Phaser.Math.Between(0, 2);
+    const roll = Math.random();
+    const makeDouble = roll < this.stage.doubleObstacleChance;
+    const makeOverhead = this.obstacleCount > 2 && Math.random() < this.stage.overheadChance;
 
-    const obstacle = this.add.container(this.scale.width + 90, 0) as Obstacle;
+    this.spawnObstacle(firstLane, makeOverhead ? 'overhead' : 'ground', 0);
+
+    if (makeDouble) {
+      const safeLane = Phaser.Math.Between(0, 2);
+      const secondLane = safeLane === firstLane ? (firstLane + 1 + Phaser.Math.Between(0, 1)) % 3 : safeLane;
+      const secondKind: StageObstacleKind = this.stage.id >= 3 && Math.random() < this.stage.overheadChance * 0.65 ? 'overhead' : 'ground';
+      this.spawnObstacle(secondLane, secondKind, 185);
+    }
+  }
+
+  spawnObstacle(lane: number, kind: StageObstacleKind, xOffset: number) {
+    const obstacle = this.add.container(this.scale.width + 90 + xOffset, 0) as Obstacle;
     obstacle.obstacleLane = lane;
     obstacle.obstacleKind = kind;
 
@@ -764,7 +871,7 @@ class RunnerScene extends Phaser.Scene {
     obstacle.add(g);
     obstacle.setScale(0.88);
     this.tweens.add({ targets: obstacle, scale: 1, duration: 180, ease: 'Back.easeOut' });
-    obstacle.x = this.laneX(lane) + this.scale.width / 2;
+    obstacle.x = this.scale.width + 90 + xOffset;
     obstacle.setDepth(8);
     this.obstacles.push(obstacle);
     this.obstacleCount += 1;
@@ -772,12 +879,19 @@ class RunnerScene extends Phaser.Scene {
 
   spawnCoinPattern() {
     const lane = Phaser.Math.Between(0, 2);
-    const count = Phaser.Math.Between(2, 4);
+    const count = this.stage.id >= 3 ? Phaser.Math.Between(3, 5) : Phaser.Math.Between(2, 4);
+    const pattern = this.stage.coinPattern;
 
     for (let i = 0; i < count; i++) {
+      const laneForCoin = pattern === 'zigzag' ? (lane + i) % 3 : lane;
+      const height = pattern === 'stairs' || pattern === 'zigzag'
+        ? 58 + (i % 3) * 24
+        : pattern === 'burst' && i % 2 === 1
+          ? 112
+          : 72;
       const coin = this.add.circle(
-        this.scale.width + 70 + i * 58,
-        this.groundY - 72 - (i % 2 === 0 ? 0 : 28),
+        this.scale.width + 70 + i * (pattern === 'burst' ? 48 : 58),
+        this.groundY - height,
         15,
         0xfbbf24,
       );
@@ -785,9 +899,9 @@ class RunnerScene extends Phaser.Scene {
       coin.setStrokeStyle(4, 0xf59e0b);
       this.tweens.add({ targets: coin, scale: 1.12, duration: 420, yoyo: true, repeat: -1, ease: 'Sine.easeInOut' });
       coin.setDepth(7);
-      coin.setData('lane', lane);
-      coin.y = this.groundY - 72 - (i % 2 === 0 ? 0 : 28);
-      coin.x = this.scale.width + 70 + i * 58;
+      coin.setData('lane', laneForCoin);
+      coin.y = this.groundY - height;
+      coin.x = this.scale.width + 70 + i * (pattern === 'burst' ? 48 : 58);
       this.coinObjs.push(coin);
     }
   }
