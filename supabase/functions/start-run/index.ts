@@ -25,14 +25,42 @@ Deno.serve(async (req) => {
       return Response.json({ error: 'نشست کاربر معتبر نیست.' }, { status: 401, headers: corsHeaders });
     }
 
-    const runId = crypto.randomUUID();
-    const { error } = await admin.from('runner_run_sessions').insert({
-      run_id: runId,
-      user_id: data.user.id,
-    });
-    if (error) throw error;
+    const body = await req.json().catch(() => ({}));
+    const effects = body?.effects ?? {};
+    const shield = effects.shield === true;
+    const magnet = effects.magnet === true;
+    const turbo = effects.turbo === true;
+    const coinBoost = effects.coinBoost === true;
 
-    return Response.json({ runId }, { headers: corsHeaders });
+    const { data: run, error } = await admin.rpc('start_runner_run', {
+      p_user_id: data.user.id,
+      p_shield: shield,
+      p_magnet: magnet,
+      p_turbo: turbo,
+      p_coin_boost: coinBoost,
+    });
+
+    if (error) {
+      const known = ['player_progress_not_found', 'item_not_owned'];
+      return Response.json(
+        { error: known.includes(error.message) ? error.message : 'شروع بازی آنلاین انجام نشد.' },
+        { status: known.includes(error.message) ? 400 : 500, headers: corsHeaders },
+      );
+    }
+
+    const result = Array.isArray(run) ? run[0] : run;
+    if (!result?.run_id) throw new Error('empty_run');
+
+    return Response.json({
+      runId: result.run_id,
+      effects: {
+        shield: Boolean(result.shield_active),
+        magnet: Boolean(result.magnet_active),
+        turbo: Boolean(result.turbo_active),
+        coinBoost: Number(result.coin_multiplier ?? 1) > 1,
+        coinMultiplier: Number(result.coin_multiplier ?? 1),
+      },
+    }, { headers: corsHeaders });
   } catch (error) {
     console.error('[RunnerGame] start-run failed', error);
     return Response.json({ error: 'شروع بازی آنلاین انجام نشد.' }, { status: 500, headers: corsHeaders });
