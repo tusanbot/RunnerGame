@@ -3,7 +3,7 @@ import './styles.css';
 import { AuthUi } from './ui/authUi';
 import { loadLocalProgress, saveCloudProgress, saveLocalProgress, type PlayerProgress } from './services/playerProgress';
 import { finishSecureRun, startSecureRun } from './services/runnerRewards';
-import { getMissionSnapshot, type MissionSnapshot } from './services/missions';
+import { claimMission, getMissionSnapshot, type MissionSnapshot } from './services/missions';
 
 type Character = { id:string; name:string; color:number; accent:number; ability:string; speed:number; jump:number; };
 const characters:Character[]=[
@@ -37,6 +37,15 @@ class RunnerScene extends Phaser.Scene{
     if(this.progress.userId==='guest'){ this.missionSnapshot=null; return; }
     this.missionSnapshot=await getMissionSnapshot();
     if(this.running && this.missionText){ this.missionText.setText(this.missionSummary()); }
+  }
+  async claimReadyMission(){
+    const mission=this.missionSnapshot?.missions.find(x=>!x.claimed&&x.completed);
+    if(!mission || this.progress.userId==='guest') return;
+    const reward=await claimMission(mission.id);
+    if(!reward) return;
+    this.progress={...this.progress,coins:Number(reward.coins),xp:Number(reward.xp),updatedAt:new Date().toISOString()};
+    saveLocalProgress(this.progress);
+    await this.refreshMissions();
   }
   missionSummary(){
     const m=this.missionSnapshot?.missions.find(x=>!x.claimed && x.completed);
@@ -100,7 +109,8 @@ class RunnerScene extends Phaser.Scene{
     this.player=this.makeCharacter(this.laneX(),this.groundY-48,this.selected,1);
     this.ui=this.add.text(22,20,'',{fontFamily:'Arial',fontSize:'19px',fontStyle:'bold',color:'#fff'}).setDepth(20);
     this.coinText=this.add.text(w-22,20,'🪙 0',{fontFamily:'Arial',fontSize:'19px',fontStyle:'bold',color:'#fbbf24'}).setOrigin(1,0).setDepth(20);
-    this.missionText=this.add.text(w/2,54,this.missionSummary(),{fontFamily:'Arial',fontSize:'14px',color:'#cbd5e1'}).setOrigin(.5).setDepth(20);
+    this.missionText=this.add.text(w/2,54,this.missionSummary(),{fontFamily:'Arial',fontSize:'14px',color:'#cbd5e1'}).setOrigin(.5).setDepth(20).setInteractive({useHandCursor:true});
+    this.missionText.on('pointerdown',()=>void this.claimReadyMission());
     this.running=true;
     void this.refreshMissions();
   }
