@@ -1161,6 +1161,7 @@ class RunnerScene extends Phaser.Scene {
       coin.setStrokeStyle(4, 0xf59e0b);
       const coinCore = this.add.circle(coin.x, coin.y, 7, 0xfff7b2, 0.95).setDepth(8);
       coinCore.setData('coinCore', coin);
+      coinCore.setData('runnerActor', true);
       coin.setData('coinCore', coinCore);
       this.tweens.add({ targets: coin, scale: 1.12, duration: 420, yoyo: true, repeat: -1, ease: 'Sine.easeInOut' });
       this.tweens.add({ targets: coinCore, scale: 0.75, alpha: 0.45, duration: 420, yoyo: true, repeat: -1, ease: 'Sine.easeInOut' });
