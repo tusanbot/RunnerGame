@@ -1540,11 +1540,11 @@ class RunnerScene extends Phaser.Scene {
       ['📊 آمار من', 0x334155, () => this.showMetaPanel('stats')],
     ];
     buttons.forEach(([label, color, onClick], index) => {
-      const columns = compact ? 1 : 2;
+      const columns = 2;
       const row = Math.floor(index / columns);
       const col = index % columns;
-      const buttonWidth = compact ? Math.min(310, w - 44) : Math.min(285, (w - 60) / 2);
-      const x = compact ? w / 2 : (col === 0 ? w * 0.34 : w * 0.66);
+      const buttonWidth = Math.min(285, (w - 52) / 2);
+      const x = col === 0 ? w * 0.33 : w * 0.67;
       const y = h * 0.36 + row * (compact ? 55 : 58);
       const b = this.add.rectangle(x, y, buttonWidth, 48, color, 0.94)
         .setStrokeStyle(1, 0xffffff, 0.24).setInteractive({ useHandCursor: true }).setDepth(51).setData('runnerActor', true);
