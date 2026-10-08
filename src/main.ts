@@ -79,6 +79,12 @@ class RunnerScene extends Phaser.Scene {
   turboUntil = 0;
   baseRunSpeed = 390;
   effectsText!: Phaser.GameObjects.Text;
+  abilityButton!: Phaser.GameObjects.Rectangle;
+  abilityButtonText!: Phaser.GameObjects.Text;
+  abilityCooldownUntil = 0;
+  abilityActiveUntil = 0;
+  abilityUses = 0;
+  resistanceReady = false;
   stage!: RunnerStage;
   stageBadge!: Phaser.GameObjects.Container;
   stageToast?: Phaser.GameObjects.Container;
@@ -570,6 +576,10 @@ class RunnerScene extends Phaser.Scene {
     this.speed = this.baseRunSpeed;
     this.runEffects = { shield: false, magnet: false, turbo: false, coinBoost: false, coinMultiplier: 1 };
     this.turboUntil = 0;
+    this.abilityCooldownUntil = this.time.now + 3500;
+    this.abilityActiveUntil = 0;
+    this.abilityUses = 0;
+    this.resistanceReady = false;
     this.jumpStrength = 13 + ((stats?.jump ?? base.jump) - base.jump) * 0.7;
 
     if (this.progress.userId !== 'guest') {
@@ -624,6 +634,29 @@ class RunnerScene extends Phaser.Scene {
       .setOrigin(0.5)
       .setDepth(20);
 
+    this.abilityButton = this.add
+      .rectangle(w - 82, this.scale.height - 72, 142, 52, this.selected.accent, 0.92)
+      .setOrigin(0.5)
+      .setStrokeStyle(2, 0xffffff, 0.24)
+      .setInteractive({ useHandCursor: true })
+      .setDepth(50);
+
+    this.abilityButtonText = this.add
+      .text(w - 82, this.scale.height - 72, '', {
+        fontFamily: 'Arial',
+        fontSize: '14px',
+        fontStyle: 'bold',
+        color: '#fff',
+        align: 'center',
+      })
+      .setOrigin(0.5)
+      .setDepth(51);
+
+    this.abilityButton.on('pointerdown', (pointer: Phaser.Input.Pointer) => {
+      pointer.event?.stopPropagation?.();
+      this.activateCharacterAbility();
+    });
+
     this.add
       .text(w / 2, 82, '← → حرکت  •  ↑ پرش  •  ↓ سر خوردن  •  P مکث', {
         fontFamily: 'Arial',
@@ -653,10 +686,38 @@ class RunnerScene extends Phaser.Scene {
       this.runEffects.turbo = false;
       this.speed = Math.min(780, Math.max(this.speed, this.baseRunSpeed));
     }
+
+    if (this.selected.id === 'mohna' && this.abilityActiveUntil > 0 && this.time.now >= this.abilityActiveUntil) {
+      this.jumpStrength = 13 + ((this.selectedCharacterProgress()?.jump ?? this.selected.jump) - this.selected.jump) * 0.7;
+      this.abilityActiveUntil = 0;
+    }
+    if (this.selected.id === 'taha' && this.abilityActiveUntil > 0 && this.time.now >= this.abilityActiveUntil) {
+      this.runEffects.magnet = false;
+      this.abilityActiveUntil = 0;
+    }
+    if (this.selected.id === 'reza' && this.abilityActiveUntil > 0 && this.time.now >= this.abilityActiveUntil) {
+      this.resistanceReady = false;
+      this.abilityActiveUntil = 0;
+    }
+
     this.fxTimer += dt;
     this.updateSpeedLines();
 
     this.ui.setText(`🏃 ${Math.floor(this.distance)} متر`);
+
+    if (this.abilityButton && this.abilityButtonText) {
+      const remaining = Math.max(0, this.abilityCooldownUntil - this.time.now);
+      const active = this.abilityActiveUntil > this.time.now;
+      const ready = remaining <= 0;
+      this.abilityButton.setFillStyle(active ? 0x16a34a : ready ? this.selected.accent : 0x334155, ready || active ? 0.94 : 0.82);
+      this.abilityButtonText.setText(
+        active
+          ? `⚡ ${this.selected.ability}\nفعال`
+          : ready
+            ? `✨ ${this.selected.ability}\nاستفاده`
+            : `⏳ ${Math.ceil(remaining / 1000)}ث`
+      );
+    }
     this.coinText.setText(`🪙 ${this.coins}`);
     if (this.effectsText) {
       const active = [this.runEffects.shield ? '🛡️ سپر' : '', this.runEffects.magnet ? '🧲 مگنت' : '', this.runEffects.turbo ? '⚡ توربو' : '', this.runEffects.coinBoost ? `💰 ×${this.runEffects.coinMultiplier}` : ''].filter(Boolean);
@@ -710,6 +771,14 @@ class RunnerScene extends Phaser.Scene {
       }
 
       if (this.obstacleHitsPlayer(obstacle)) {
+        if (this.resistanceReady) {
+          this.resistanceReady = false;
+          this.abilityActiveUntil = 0;
+          this.emitAbilityFx('🧱 مقاومت!', obstacle.x, obstacle.y, 0x60a5fa);
+          obstacle.destroy();
+          this.obstacles = this.obstacles.filter((x) => x !== obstacle);
+          continue;
+        }
         if (this.runEffects.shield) {
           this.runEffects.shield = false;
           this.emitShieldFx(obstacle.x, obstacle.y);
@@ -788,7 +857,8 @@ class RunnerScene extends Phaser.Scene {
     const dx = Math.abs(coin.x - this.player.x);
     const dy = Math.abs(coin.y - this.player.y);
 
-    return dx < (this.runEffects.magnet ? 105 : 52) && dy < (this.runEffects.magnet ? 105 : 70);
+    const tahaBoost = this.selected.id === 'taha' ? 1.25 : 1;
+    return dx < (this.runEffects.magnet ? 105 : 52) * tahaBoost && dy < (this.runEffects.magnet ? 105 : 70) * tahaBoost;
   }
 
   private collectCoin(coin: Phaser.GameObjects.Arc) {
@@ -894,6 +964,94 @@ class RunnerScene extends Phaser.Scene {
     return this.scale.width / 2 + (lane - 1) * spacing;
   }
 
+  emitAbilityFx(label: string, x: number, y: number, color: number) {
+    const ring = this.add.circle(x, y, 18, color, 0.18).setStrokeStyle(4, color, 0.95).setDepth(45);
+    this.tweens.add({
+      targets: ring,
+      scale: 3.4,
+      alpha: 0,
+      duration: 420,
+      ease: 'Cubic.easeOut',
+      onComplete: () => ring.destroy(),
+    });
+
+    const text = this.add.text(x, y - 42, label, {
+      fontFamily: 'Arial',
+      fontSize: '17px',
+      fontStyle: 'bold',
+      color: '#fff',
+      stroke: '#020617',
+      strokeThickness: 4,
+    }).setOrigin(0.5).setDepth(46);
+
+    this.tweens.add({
+      targets: text,
+      y: text.y - 28,
+      alpha: 0,
+      duration: 520,
+      onComplete: () => text.destroy(),
+    });
+  }
+
+  activateCharacterAbility() {
+    if (!this.running || this.gameOverInProgress || this.time.now < this.abilityCooldownUntil) return;
+
+    this.abilityCooldownUntil = this.time.now + 14000;
+    this.abilityUses += 1;
+
+    switch (this.selected.id) {
+      case 'amirreza':
+        this.runEffects.turbo = true;
+        this.turboUntil = this.time.now + 6000;
+        this.abilityActiveUntil = this.turboUntil;
+        this.speed = Math.min(900, Math.max(this.speed, this.baseRunSpeed + 190));
+        this.emitAbilityFx('⚡ توربو!', this.player.x, this.player.y, 0xff4d6d);
+        break;
+      case 'reza':
+        this.resistanceReady = true;
+        this.abilityActiveUntil = this.time.now + 9000;
+        this.emitAbilityFx('🧱 مقاومت!', this.player.x, this.player.y, 0xffc94d);
+        break;
+      case 'taha':
+        this.runEffects.magnet = true;
+        this.abilityActiveUntil = this.time.now + 7000;
+        this.emitAbilityFx('🪙 سکه‌خور!', this.player.x, this.player.y, 0x8b5cf6);
+        break;
+      case 'mohna':
+        this.abilityActiveUntil = this.time.now + 8000;
+        this.jumpStrength *= 1.45;
+        this.emitAbilityFx('🐰 پرش خرگوشی!', this.player.x, this.player.y, 0x22d3ee);
+        break;
+      case 'abolfazl': {
+        const targets = this.obstacles
+          .filter((o) => (o.obstacleLane ?? 1) === this.lane && o.x > this.player.x && o.x < this.player.x + 330)
+          .sort((a, b) => a.x - b.x);
+        const target = targets[0];
+        if (target) {
+          this.emitAbilityFx('⚽ شوت!', target.x, target.y, 0x22c55e);
+          target.destroy();
+          this.obstacles = this.obstacles.filter((x) => x !== target);
+        }
+        this.abilityActiveUntil = this.time.now + 900;
+        break;
+      }
+      case 'mohammad': {
+        const targets = this.obstacles
+          .filter((o) => o.x > this.player.x && o.x < this.player.x + 500)
+          .slice(0, 4);
+        targets.forEach((target, index) => {
+          target.x += 90 + index * 35;
+          target.setAlpha(0.55);
+          this.tweens.add({ targets: target, alpha: 1, duration: 260, delay: index * 35 });
+        });
+        this.abilityActiveUntil = this.time.now + 3000;
+        this.speed = Math.min(820, this.speed + 70);
+        this.emitAbilityFx('😈 شیطنت!', this.player.x, this.player.y, 0xf97316);
+        break;
+      }
+    }
+  }
+
   changeLane(n: number) {
     if (!this.running || this.gameOverInProgress) return;
     this.lane = Phaser.Math.Clamp(this.lane + n, 0, 2);
@@ -932,17 +1090,26 @@ class RunnerScene extends Phaser.Scene {
       this.scene.resume();
     } else {
       this.scene.pause();
-      this.add
-        .text(this.scale.width / 2, this.scale.height / 2, '⏸ مکث\nبرای ادامه P را بزن', {
-          fontFamily: 'Arial',
-          fontSize: '28px',
-          fontStyle: 'bold',
-          color: '#fff',
-          align: 'center',
-        })
-        .setOrigin(0.5)
-        .setName('pause-overlay')
-        .setDepth(100);
+      const overlay = this.add.container(this.scale.width / 2, this.scale.height / 2).setName('pause-overlay').setDepth(100);
+      const panel = this.add.rectangle(0, 0, 280, 150, 0x020617, 0.94).setStrokeStyle(2, 0x64748b, 0.9);
+      const title = this.add.text(0, -42, '⏸ بازی متوقف شد', {
+        fontFamily: 'Arial',
+        fontSize: '24px',
+        fontStyle: 'bold',
+        color: '#fff',
+      }).setOrigin(0.5);
+      const resume = this.add.rectangle(0, 28, 190, 48, 0x7c3aed).setInteractive({ useHandCursor: true });
+      const resumeText = this.add.text(0, 28, '▶ ادامه بازی', {
+        fontFamily: 'Arial',
+        fontSize: '16px',
+        fontStyle: 'bold',
+        color: '#fff',
+      }).setOrigin(0.5);
+      resume.on('pointerdown', () => {
+        overlay.destroy();
+        this.scene.resume();
+      });
+      overlay.add([panel, title, resume, resumeText]);
     }
   }
 
