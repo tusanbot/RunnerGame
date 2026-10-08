@@ -155,11 +155,6 @@ class RunnerScene extends Phaser.Scene {
   }
 
   async refreshCharacterProgress() {
-    if (this.progress.userId === 'guest') {
-      this.characterProgress = [];
-      return;
-    }
-
     const snapshot = await getCharacterProgress();
     this.characterProgress = snapshot.characters;
 
@@ -749,7 +744,9 @@ class RunnerScene extends Phaser.Scene {
       const row = Math.floor(i / columns);
       const x = startX + col * (cardW + gapX);
       const y = startY + row * (cardH + gapY);
-      const unlocked = this.progress.unlockedCharacterIds.includes(character.id);
+      const cloudState = this.characterProgress.find((item) => item.characterId === character.id);
+      const unlocked = this.progress.unlockedCharacterIds.includes(character.id) || Boolean(cloudState?.unlocked);
+      const unlockCost = cloudState?.unlockCost ?? ({reza:150,taha:250,mohna:400,abolfazl:600,mohammad:900}[character.id] ?? 0);
 
       const card = this.add.rectangle(x, y, cardW, cardH, 0x0b1222, 0.94)
         .setStrokeStyle(2, unlocked ? character.accent : 0x334155, unlocked ? 0.9 : 0.65)
@@ -770,7 +767,7 @@ class RunnerScene extends Phaser.Scene {
       const hero = this.makeCharacter(x, y + 4, character, compact ? 0.72 : 0.82);
       hero.setData('runnerActor', true);
 
-      const stat = this.add.text(x, y + cardH / 2 - 31, unlocked ? `⚡ ${character.ability}` : '🔒 قفل است', {
+      const stat = this.add.text(x, y + cardH / 2 - 31, unlocked ? `⚡ ${character.ability}` : `🔒 نیاز به ${unlockCost.toLocaleString('fa-IR')} سکه`, {
         fontFamily: 'Arial',
         fontSize: compact ? '11px' : '12px',
         fontStyle: 'bold',
@@ -782,9 +779,9 @@ class RunnerScene extends Phaser.Scene {
         .setOrigin(0.5).setData('runnerActor', true);
 
       if (!unlocked) {
-        this.add.text(x, y + 4, '🔒', {
+        this.add.text(x, y + 4, `🔒\n${unlockCost.toLocaleString('fa-IR')} 🪙`, {
           fontFamily: 'Arial',
-          fontSize: '27px',
+          fontSize: '19px',
         }).setOrigin(0.5).setDepth(6).setData('runnerActor', true);
         card.setAlpha(0.78);
         inner.setAlpha(0.55);
