@@ -1748,6 +1748,12 @@ class RunnerScene extends Phaser.Scene {
       fontFamily: 'Arial', fontSize: '16px', color: '#c4b5fd', fontStyle: 'bold',
     }).setOrigin(0.5).setDepth(51).setData('runnerActor', true);
 
+    const heroHalo = this.add.circle(w / 2, h * 0.33, compact ? 58 : 72, this.selected.accent, 0.10).setDepth(51).setData('runnerActor', true);
+    this.tweens.add({ targets: heroHalo, scale: 1.12, alpha: 0.045, duration: 1500, yoyo: true, repeat: -1 });
+    const hero = this.makeCharacter(w / 2, h * 0.34, this.selected, compact ? 0.82 : 1.02);
+    hero.setDepth(52).setData('runnerActor', true);
+    this.add.text(w / 2, h * 0.405, `✦ ${this.selected.name} • ${this.selected.ability} • رکورد ${this.progress.bestDistance.toLocaleString('fa-IR')} متر`, { fontFamily: 'Trebuchet MS', fontSize: compact ? '11px' : '13px', fontStyle: 'bold', color: '#e2e8f0' }).setOrigin(0.5).setDepth(52).setData('runnerActor', true);
+
     const buttons: Array<[string, number, () => void]> = [
       ['▶️ شروع بازی', 0x7c3aed, () => this.showCharacterSelect()],
       ['🎯 مأموریت‌ها', 0x0f766e, () => this.showMetaPanel('missions')],
@@ -1763,7 +1769,7 @@ class RunnerScene extends Phaser.Scene {
       const col = index % columns;
       const buttonWidth = Math.min(285, (w - 52) / 2);
       const x = col === 0 ? w * 0.33 : w * 0.67;
-      const y = h * 0.36 + row * (compact ? 55 : 58);
+      const y = h * 0.47 + row * (compact ? 52 : 55);
       const b = this.add.rectangle(x, y, buttonWidth, 48, color, 0.94)
         .setStrokeStyle(1, 0xffffff, 0.24).setInteractive({ useHandCursor: true }).setDepth(51).setData('runnerActor', true);
       const t = this.add.text(x, y, label, { fontFamily: 'Arial', fontSize: '16px', fontStyle: 'bold', color: '#fff' })
