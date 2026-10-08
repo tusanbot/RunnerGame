@@ -25,3 +25,5 @@ canvas{display:block;touch-action:none}
 .hidden{display:none!important}
 button:disabled{opacity:.6;cursor:wait}
 @media(max-width:520px){.runner-account-button{padding:9px 11px;font-size:12px}.runner-auth-modal{padding:24px 18px;border-radius:20px}}
+
+.runner-mission-panel{position:fixed;left:50%;bottom:max(14px,env(safe-area-inset-bottom));transform:translateX(-50%);z-index:900;width:min(520px,92vw);direction:rtl;padding:10px 14px;border:1px solid rgba(148,163,184,.2);border-radius:16px;background:rgba(15,23,42,.84);color:#e2e8f0;backdrop-filter:blur(10px);font:700 13px Arial,sans-serif;text-align:center;box-shadow:0 10px 35px rgba(0,0,0,.25)}
