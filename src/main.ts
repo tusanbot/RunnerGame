@@ -5,6 +5,7 @@ import { loadLocalProgress, saveCloudProgress, saveLocalProgress, type PlayerPro
 import { finishSecureRun, startSecureRun } from './services/runnerRewards';
 import { claimMission, getMissionSnapshot, type MissionSnapshot } from './services/missions';
 import { ShopUi } from './ui/shopUi';
+import { clearRunnerLoadout, getRunnerLoadout, type RunnerLoadout } from './services/shop';
 import { getCharacterProgress, type CharacterProgress } from './services/characterProgression';
 import { CharacterProgressUi } from './ui/characterProgressUi';
 import { LeaderboardUi } from './ui/leaderboardUi';
@@ -73,6 +74,10 @@ class RunnerScene extends Phaser.Scene {
 
   missionSnapshot: MissionSnapshot | null = null;
   characterProgress: CharacterProgress[] = [];
+  runEffects: { shield: boolean; magnet: boolean; turbo: boolean; coinBoost: boolean; coinMultiplier: number } = { shield: false, magnet: false, turbo: false, coinBoost: false, coinMultiplier: 1 };
+  turboUntil = 0;
+  baseRunSpeed = 390;
+  effectsText!: Phaser.GameObjects.Text;
 
   progress: PlayerProgress =
     loadLocalProgress() ??
@@ -294,6 +299,20 @@ class RunnerScene extends Phaser.Scene {
     });
   }
 
+  emitShieldFx(x: number, y: number) {
+    const ring = this.add.circle(x, y, 20, 0x38bdf8, 0.18).setStrokeStyle(4, 0x67e8f9, 0.95).setDepth(27);
+    this.tweens.add({
+      targets: ring,
+      scale: 3.2,
+      alpha: 0,
+      duration: 420,
+      ease: 'Cubic.easeOut',
+      onComplete: () => ring.destroy(),
+    });
+    const label = this.add.text(x, y - 38, '🛡️ نجات!', { fontFamily: 'Arial', fontSize: '16px', fontStyle: 'bold', color: '#67e8f9' }).setOrigin(0.5).setDepth(28);
+    this.tweens.add({ targets: label, y: label.y - 25, alpha: 0, duration: 500, onComplete: () => label.destroy() });
+  }
+
   emitPickupFx(x: number, y: number) {
     for (let i = 0; i < 5; i++) {
       const p = this.add.circle(x, y, Phaser.Math.Between(2, 4), 0xfbbf24, 0.95).setDepth(26);
@@ -475,12 +494,22 @@ class RunnerScene extends Phaser.Scene {
     const stats = this.selectedCharacterProgress();
     const base = characters.find((c) => c.id === this.selected.id) ?? this.selected;
 
-    this.speed = 390 + ((stats?.speed ?? base.speed) - base.speed) * 20;
+    this.baseRunSpeed = 390 + ((stats?.speed ?? base.speed) - base.speed) * 20;
+    this.speed = this.baseRunSpeed;
+    this.runEffects = { shield: false, magnet: false, turbo: false, coinBoost: false, coinMultiplier: 1 };
+    this.turboUntil = 0;
     this.jumpStrength = 13 + ((stats?.jump ?? base.jump) - base.jump) * 0.7;
 
     if (this.progress.userId !== 'guest') {
-      void startSecureRun().then((runId) => {
-        if (this.running) this.secureRunId = runId;
+      const loadout: RunnerLoadout = getRunnerLoadout();
+      void startSecureRun(loadout).then((run) => {
+        if (!this.running) return;
+        if (run) {
+          this.secureRunId = run.runId;
+          this.runEffects = run.effects;
+          if (run.effects.turbo) this.turboUntil = this.time.now + 8000;
+          clearRunnerLoadout();
+        }
       });
     }
 
@@ -519,6 +548,11 @@ class RunnerScene extends Phaser.Scene {
 
     this.missionText.on('pointerdown', () => void this.claimReadyMission());
 
+    this.effectsText = this.add
+      .text(w / 2, 104, '', { fontFamily: 'Arial', fontSize: '12px', color: '#fbbf24' })
+      .setOrigin(0.5)
+      .setDepth(20);
+
     this.add
       .text(w / 2, 82, '← → حرکت  •  ↑ پرش  •  ↓ سر خوردن  •  P مکث', {
         fontFamily: 'Arial',
@@ -539,12 +573,22 @@ class RunnerScene extends Phaser.Scene {
 
     this.distance += this.speed * d / 10;
     this.worldTime += dt;
-    this.speed = Math.min(780, this.speed + d * 7);
+    this.speed = Math.min(this.runEffects.turbo ? 900 : 780, this.speed + d * 7);
+    if (this.runEffects.turbo && this.time.now < this.turboUntil) {
+      this.speed = Math.min(900, Math.max(this.speed, this.baseRunSpeed + 155));
+    } else if (this.runEffects.turbo && this.turboUntil > 0) {
+      this.runEffects.turbo = false;
+      this.speed = Math.min(780, Math.max(this.speed, this.baseRunSpeed));
+    }
     this.fxTimer += dt;
     this.updateSpeedLines();
 
     this.ui.setText(`🏃 ${Math.floor(this.distance)} متر`);
     this.coinText.setText(`🪙 ${this.coins}`);
+    if (this.effectsText) {
+      const active = [this.runEffects.shield ? '🛡️ سپر' : '', this.runEffects.magnet ? '🧲 مگنت' : '', this.runEffects.turbo ? '⚡ توربو' : '', this.runEffects.coinBoost ? `💰 ×${this.runEffects.coinMultiplier}` : ''].filter(Boolean);
+      this.effectsText.setText(active.join('  •  '));
+    }
 
     this.player.x = Phaser.Math.Linear(this.player.x, this.laneX(), 1 - Math.exp(-12 * d));
 
@@ -589,6 +633,13 @@ class RunnerScene extends Phaser.Scene {
       }
 
       if (this.obstacleHitsPlayer(obstacle)) {
+        if (this.runEffects.shield) {
+          this.runEffects.shield = false;
+          this.emitShieldFx(obstacle.x, obstacle.y);
+          obstacle.destroy();
+          this.obstacles = this.obstacles.filter((x) => x !== obstacle);
+          continue;
+        }
         this.gameOver();
         return;
       }
@@ -601,6 +652,15 @@ class RunnerScene extends Phaser.Scene {
         coin.destroy();
         this.coinObjs = this.coinObjs.filter((x) => x !== coin);
         continue;
+      }
+
+      if (this.runEffects.magnet) {
+        const dx = this.player.x - coin.x;
+        const dy = this.player.y - coin.y;
+        if (Math.abs(dx) < 190 && Math.abs(dy) < 120) {
+          coin.x += dx * Math.min(1, d * 8);
+          coin.y += dy * Math.min(1, d * 8);
+        }
       }
 
       coin.rotation += d * 4.5;
@@ -651,7 +711,7 @@ class RunnerScene extends Phaser.Scene {
     const dx = Math.abs(coin.x - this.player.x);
     const dy = Math.abs(coin.y - this.player.y);
 
-    return dx < 52 && dy < 70;
+    return dx < (this.runEffects.magnet ? 105 : 52) && dy < (this.runEffects.magnet ? 105 : 70);
   }
 
   private collectCoin(coin: Phaser.GameObjects.Arc) {
