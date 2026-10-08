@@ -821,11 +821,11 @@ class RunnerScene extends Phaser.Scene {
 
     const state = this.playerState;
     const airborne = this.playerY < -2;
-    const baseScale = state === 'slide' ? 0.52 : state === 'jump' ? 0.76 : state === 'hit' ? 0.82 : 0.72;
+    const baseScale = state === 'slide' ? 0.58 : state === 'jump' ? 0.86 : state === 'hit' ? 0.92 : 0.82;
 
     sprite.setScale(
-      state === 'slide' ? 0.72 : baseScale,
-      state === 'slide' ? 0.46 : baseScale,
+      state === 'slide' ? 0.82 : baseScale,
+      state === 'slide' ? 0.50 : baseScale,
     );
     sprite.y = state === 'slide' ? 13 : 0;
     sprite.rotation =
@@ -858,7 +858,7 @@ class RunnerScene extends Phaser.Scene {
     const shadow = this.add.ellipse(0, 48, c.id === 'taha' ? 62 : 52, 13, 0x020617, 0.32);
     const sprite = this.add.image(0, 0, `character-${c.id}`)
       .setOrigin(0.5, 0.64)
-      .setScale(0.72 * (silhouetteScale[c.id] ?? 1));
+      .setScale(0.82 * (silhouetteScale[c.id] ?? 1));
 
     group.add([shadow, sprite]);
     group.setData('sprite', sprite);
