@@ -69,21 +69,36 @@ export async function loadCloudProgress(userId: string): Promise<PlayerProgress 
 export async function saveCloudProgress(progress: PlayerProgress): Promise<boolean> {
   if (!supabase) return false;
 
-  const { error } = await supabase
+  const { data: existing, error: lookupError } = await supabase
     .from('runner_player_progress')
-    .upsert({
-      user_id: progress.userId,
-      display_name: progress.displayName,
-      coins: progress.coins,
-      best_distance: progress.bestDistance,
-      level: progress.level,
-      xp: progress.xp,
-      active_character_id: progress.activeCharacterId,
-      unlocked_character_ids: progress.unlockedCharacterIds,
-      inventory: progress.inventory,
-      completed_mission_ids: progress.completedMissionIds,
-      updated_at: new Date().toISOString(),
-    }, { onConflict: 'user_id' });
+    .select('user_id')
+    .eq('user_id', progress.userId)
+    .maybeSingle();
+
+  if (lookupError) {
+    console.warn('[RunnerGame] Cloud progress lookup failed:', lookupError.message);
+    return false;
+  }
+
+  const payload = {
+    user_id: progress.userId,
+    display_name: progress.displayName,
+    active_character_id: progress.activeCharacterId,
+    unlocked_character_ids: progress.unlockedCharacterIds,
+    inventory: progress.inventory,
+    completed_mission_ids: progress.completedMissionIds,
+    updated_at: new Date().toISOString(),
+  };
+
+  const { error } = existing
+    ? await supabase.from('runner_player_progress').update(payload).eq('user_id', progress.userId)
+    : await supabase.from('runner_player_progress').insert({
+        ...payload,
+        coins: 0,
+        best_distance: 0,
+        level: 1,
+        xp: 0,
+      });
 
   if (error) {
     console.warn('[RunnerGame] Cloud save failed:', error.message);
