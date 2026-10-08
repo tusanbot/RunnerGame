@@ -652,8 +652,7 @@ class RunnerScene extends Phaser.Scene {
       .setOrigin(0.5)
       .setDepth(51);
 
-    this.abilityButton.on('pointerdown', (pointer: Phaser.Input.Pointer) => {
-      pointer.event?.stopPropagation?.();
+    this.abilityButton.on('pointerdown', () => {
       this.activateCharacterAbility();
     });
 
