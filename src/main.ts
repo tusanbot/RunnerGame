@@ -77,6 +77,7 @@ class RunnerScene extends Phaser.Scene {
   lastGrounded = true;
 
   secureRunId: string | null = null;
+  secureRunPromise: ReturnType<typeof startSecureRun> | null = null;
   gameOverInProgress = false;
   slideUntil = 0;
   swipeStartX: number | null = null;
@@ -719,6 +720,7 @@ class RunnerScene extends Phaser.Scene {
     this.obstacleCount = 0;
     this.slideUntil = 0;
     this.secureRunId = null;
+    this.secureRunPromise = null;
     this.gameOverInProgress = false;
 
     const stats = this.selectedCharacterProgress();
@@ -736,10 +738,10 @@ class RunnerScene extends Phaser.Scene {
 
     if (this.progress.userId !== 'guest') {
       const loadout: RunnerLoadout = getRunnerLoadout();
-      void startSecureRun(loadout).then((run) => {
+      this.secureRunPromise = startSecureRun(loadout);
+      void this.secureRunPromise.then((run) => {
         if (!run) return;
         clearRunnerLoadout();
-        if (!this.running) return;
         this.secureRunId = run.runId;
         this.runEffects = run.effects;
         if (run.effects.turbo) this.turboUntil = this.time.now + 8000;
@@ -1325,6 +1327,13 @@ class RunnerScene extends Phaser.Scene {
     let onlineReward = true;
 
     if (this.progress.userId !== 'guest') {
+      if (!this.secureRunId && this.secureRunPromise) {
+        const started = await this.secureRunPromise;
+        if (started) {
+          this.secureRunId = started.runId;
+          this.runEffects = started.effects;
+        }
+      }
       const runId = this.secureRunId;
 
       if (runId) {
@@ -1351,6 +1360,15 @@ class RunnerScene extends Phaser.Scene {
       } else {
         onlineReward = false;
       }
+
+      // Always preserve a local record even if the online claim failed.
+      this.progress = {
+        ...this.progress,
+        bestDistance: Math.max(this.progress.bestDistance, finalDistance),
+        activeCharacterId: this.selected.id,
+        updatedAt: new Date().toISOString(),
+      };
+      saveLocalProgress(this.progress);
     } else {
       this.progress = {
         ...this.progress,
