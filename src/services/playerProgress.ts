@@ -84,8 +84,6 @@ export async function saveCloudProgress(progress: PlayerProgress): Promise<boole
     user_id: progress.userId,
     display_name: progress.displayName,
     active_character_id: progress.activeCharacterId,
-    unlocked_character_ids: progress.unlockedCharacterIds,
-    inventory: progress.inventory,
     completed_mission_ids: progress.completedMissionIds,
     updated_at: new Date().toISOString(),
   };
@@ -98,6 +96,9 @@ export async function saveCloudProgress(progress: PlayerProgress): Promise<boole
         best_distance: 0,
         level: 1,
         xp: 0,
+        unlocked_character_ids: ['amirreza'],
+        inventory: {},
+        completed_mission_ids: [],
       });
 
   if (error) {
