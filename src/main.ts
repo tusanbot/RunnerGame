@@ -7,6 +7,7 @@ import { claimMission, getMissionSnapshot, type MissionSnapshot } from './servic
 import { ShopUi } from './ui/shopUi';
 import { getCharacterProgress, type CharacterProgress } from './services/characterProgression';
 import { CharacterProgressUi } from './ui/characterProgressUi';
+import { LeaderboardUi } from './ui/leaderboardUi';
 
 type Character = {
   id: string;
@@ -931,6 +932,7 @@ const game = new Phaser.Game({
 
 let shopUi: ShopUi;
 let characterProgressUi: CharacterProgressUi;
+let leaderboardUi: LeaderboardUi;
 
 const authUi = new AuthUi((state) => {
   const scene = game.scene.getScene('RunnerScene') as RunnerScene | undefined;
@@ -947,6 +949,8 @@ shopUi = new ShopUi(
     scene.persistProgress();
   },
 );
+
+leaderboardUi = new LeaderboardUi();
 
 characterProgressUi = new CharacterProgressUi(
   () => (game.scene.getScene('RunnerScene') as RunnerScene).progress,
@@ -965,4 +969,5 @@ window.addEventListener('beforeunload', () => {
   authUi.destroy();
   shopUi.destroy();
   characterProgressUi.destroy();
+  leaderboardUi.destroy();
 });
