@@ -33,6 +33,7 @@ const characters: Character[] = [
 type Obstacle = Phaser.GameObjects.Container & {
   obstacleLane?: number;
   obstacleKind?: 'ground' | 'overhead';
+  obstacleVariant?: 'crate' | 'cone' | 'barrier' | 'gate' | 'sign';
 };
 
 class RunnerScene extends Phaser.Scene {
@@ -48,12 +49,16 @@ class RunnerScene extends Phaser.Scene {
   playerY = 0;
   velocityY = 0;
   jumpStrength = 13;
+  jumpBufferUntil = 0;
+  coyoteUntil = 0;
+  jumpHeld = false;
   groundY = 0;
   pausedByUser = false;
   pauseOverlay?: Phaser.GameObjects.Container;
   lastObstacleLane = -1;
   lastObstacleKind: StageObstacleKind | null = null;
   lastObstacleAt = 0;
+  lastObstacleX = 0;
   totalRuns = 0;
   totalCoinsCollected = 0;
 
@@ -220,6 +225,7 @@ class RunnerScene extends Phaser.Scene {
     this.groundY = this.scale.height * 0.78;
 
     this.drawWorld();
+    this.drawStageWorld();
     this.roadGlow = this.add.graphics().setDepth(3);
     this.stage = RUNNER_STAGES[0];
     this.stageAtmosphere = this.add.rectangle(0, 0, this.scale.width, this.scale.height, 0x000000, 0)
@@ -346,6 +352,7 @@ class RunnerScene extends Phaser.Scene {
       if (!initial && previous && previous.id !== next.id) {
         this.showStageToast(next);
       }
+      this.drawStageWorld();
     }
 
     if (!this.stageBadge) return;
@@ -393,6 +400,93 @@ class RunnerScene extends Phaser.Scene {
         this.stageToast = undefined;
       },
     });
+  }
+
+  drawStageWorld() {
+    if (!this.skyline) return;
+    const w = this.scale.width;
+    const h = this.scale.height;
+    const g = this.skyline;
+    const stage = this.stage ?? RUNNER_STAGES[0];
+    g.clear();
+
+    const skyTop = stage.id === 1 ? 0x102b4d : stage.id === 2 ? 0x26344a : stage.id === 3 ? 0x100d2b : 0x2b0b16;
+    const skyBottom = stage.id === 1 ? 0x285c72 : stage.id === 2 ? 0x1c2638 : stage.id === 3 ? 0x30145c : 0x551522;
+    g.fillGradientStyle(skyTop, skyTop, skyBottom, skyBottom, 1);
+    g.fillRect(0, 0, w, this.groundY + 4);
+
+    // Far parallax silhouettes.
+    for (let i = 0; i < 22; i++) {
+      const x = ((i * 173 + stage.id * 91) % (w + 120)) - 60;
+      const bh = 55 + ((i * 37 + stage.id * 19) % 130);
+      const bw = 42 + ((i * 23) % 58);
+      const colors = [0x17233a, 0x1d2b45, 0x202b3e, 0x26334b];
+      g.fillStyle(colors[i % colors.length], 0.95);
+      g.fillRect(x, this.groundY - bh, bw, bh);
+      if (stage.id >= 3) {
+        g.fillStyle(stage.id === 3 ? 0xfbbf24 : 0xfb7185, 0.28);
+        for (let wy = this.groundY - bh + 14; wy < this.groundY - 12; wy += 24) {
+          g.fillRect(x + 8, wy, 7, 5);
+          if (bw > 60) g.fillRect(x + bw - 17, wy, 7, 5);
+        }
+      }
+    }
+
+    // Stage-specific landmarks make each zone visually distinct.
+    if (stage.id === 1) {
+      g.fillStyle(0x14532d, 0.85);
+      for (let i = 0; i < 7; i++) {
+        const x = 30 + i * (w / 6.5);
+        g.fillRect(x - 3, this.groundY - 92, 6, 92);
+        g.fillCircle(x, this.groundY - 105, 22);
+        g.fillCircle(x - 15, this.groundY - 94, 17);
+        g.fillCircle(x + 15, this.groundY - 94, 17);
+      }
+      g.fillStyle(0x38bdf8, 0.18);
+      g.fillRect(0, this.groundY - 118, w, 2);
+    } else if (stage.id === 2) {
+      g.fillStyle(0x475569, 0.95);
+      g.fillRect(0, this.groundY - 92, w, 7);
+      for (let i = 0; i < 8; i++) {
+        const x = 30 + i * (w / 7);
+        g.fillRect(x, this.groundY - 90, 5, 90);
+        g.fillStyle(0xf59e0b, 0.65);
+        g.fillRect(x - 3, this.groundY - 84, 11, 4);
+        g.fillStyle(0x475569, 0.95);
+      }
+      g.fillStyle(0x64748b, 0.9);
+      g.fillRect(w * 0.08, this.groundY - 150, w * 0.84, 5);
+      g.fillRect(w * 0.08, this.groundY - 150, 5, 65);
+      g.fillRect(w * 0.92 - 5, this.groundY - 150, 5, 65);
+    } else if (stage.id === 3) {
+      g.fillStyle(0x7c3aed, 0.16);
+      for (let i = 0; i < 8; i++) {
+        const x = 30 + i * (w / 7);
+        g.fillRect(x, this.groundY - 180 - (i % 3) * 35, 3, 180);
+        g.fillStyle(i % 2 ? 0x22d3ee : 0xf472b6, 0.5);
+        g.fillRect(x - 18, this.groundY - 130 - (i % 3) * 22, 36, 5);
+      }
+      g.fillStyle(0x0f172a, 0.5);
+      g.fillRect(0, this.groundY - 205, w, 28);
+      g.fillStyle(0xf472b6, 0.5);
+      g.fillRect(0, this.groundY - 205, w, 2);
+    } else {
+      g.fillStyle(0x451a03, 0.9);
+      for (let i = 0; i < 9; i++) {
+        const x = 20 + i * (w / 8);
+        g.fillRect(x, this.groundY - 135, 5, 135);
+        g.fillStyle(0xef4444, 0.55);
+        g.fillRect(x - 9, this.groundY - 120, 23, 4);
+        g.fillStyle(0x451a03, 0.9);
+      }
+      g.fillStyle(0xf43f5e, 0.13);
+      g.fillRect(0, this.groundY - 240, w, 110);
+    }
+
+    g.fillStyle(0x0b1220, 0.96);
+    g.fillRect(0, this.groundY, w, h - this.groundY);
+    g.fillStyle(stage.id === 4 ? 0x7f1d1d : stage.id === 2 ? 0x334155 : 0x172554, 0.7);
+    g.fillRect(0, this.groundY - 3, w, 7);
   }
 
   createSpeedLines() {
@@ -721,6 +815,10 @@ class RunnerScene extends Phaser.Scene {
     this.lastObstacleLane = -1;
     this.lastObstacleKind = null;
     this.lastObstacleAt = 0;
+    this.lastObstacleX = this.scale.width + 600;
+    this.jumpBufferUntil = 0;
+    this.coyoteUntil = 0;
+    this.jumpHeld = false;
     this.playerState = 'idle';
     this.updateStagePresentation(true);
     this.obstacleCount = 0;
