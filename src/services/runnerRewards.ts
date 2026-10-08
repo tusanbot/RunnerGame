@@ -44,12 +44,14 @@ export async function finishSecureRun(
   characterId: string,
 ): Promise<RunReward | null> {
   if (!supabase) return null;
-  const { data, error } = await supabase.functions.invoke('finish-run', {
-    body: { runId, distance: Math.floor(distance), collectedCoins: Math.floor(collectedCoins), characterId },
-  });
-  if (error || !data) {
-    console.warn('[RunnerGame] Secure reward claim failed:', error?.message);
-    return null;
+  const body = { runId, distance: Math.floor(distance), collectedCoins: Math.floor(collectedCoins), characterId };
+  let lastError: unknown = null;
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    const { data, error } = await supabase.functions.invoke('finish-run', { body });
+    if (!error && data) return data as RunReward;
+    lastError = error;
+    await new Promise((resolve) => window.setTimeout(resolve, 350 * (attempt + 1)));
   }
-  return data as RunReward;
+  console.warn('[RunnerGame] Secure reward claim failed after retries:', (lastError as { message?: string } | null)?.message);
+  return null;
 }
