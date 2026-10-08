@@ -3,6 +3,7 @@ import './styles.css';
 import { AuthUi } from './ui/authUi';
 import { loadLocalProgress, saveCloudProgress, saveLocalProgress, type PlayerProgress } from './services/playerProgress';
 import { finishSecureRun, startSecureRun } from './services/runnerRewards';
+import { getMissionSnapshot, type MissionSnapshot } from './services/missions';
 
 type Character = { id:string; name:string; color:number; accent:number; ability:string; speed:number; jump:number; };
 const characters:Character[]=[
@@ -18,6 +19,7 @@ class RunnerScene extends Phaser.Scene{
   selected=characters[0]; running=false; distance=0; coins=0; speed=420; lane=1; player!:Phaser.GameObjects.Container;
   playerY=0; velocityY=0; groundY=0; obstacles:Phaser.GameObjects.Container[]=[]; coinObjs:Phaser.GameObjects.Arc[]=[];
   ui!:Phaser.GameObjects.Text; coinText!:Phaser.GameObjects.Text; missionText!:Phaser.GameObjects.Text; lastSpawn=0; lastCoin=0;
+  missionSnapshot:MissionSnapshot|null=null;
   progress:PlayerProgress=loadLocalProgress() ?? {userId:'guest',displayName:'بازیکن',coins:0,bestDistance:0,level:1,xp:0,activeCharacterId:'amirreza',unlockedCharacterIds:['amirreza'],inventory:{},completedMissionIds:[],updatedAt:new Date().toISOString()};
   constructor(){super('RunnerScene');}
   setProgress(progress:PlayerProgress){
@@ -31,11 +33,23 @@ class RunnerScene extends Phaser.Scene{
     saveLocalProgress(this.progress);
     if(this.progress.userId!=='guest') void saveCloudProgress(this.progress);
   }
+  async refreshMissions(){
+    if(this.progress.userId==='guest'){ this.missionSnapshot=null; return; }
+    this.missionSnapshot=await getMissionSnapshot();
+    if(this.running && this.missionText){ this.missionText.setText(this.missionSummary()); }
+  }
+  missionSummary(){
+    const m=this.missionSnapshot?.missions.find(x=>!x.claimed && x.completed);
+    if(m) return `🎯 مأموریت آماده دریافت: ${m.title}`;
+    const active=this.missionSnapshot?.missions.find(x=>!x.claimed && x.progress>0) ?? this.missionSnapshot?.missions[0];
+    return active ? `🎯 ${active.title} ${Math.min(active.progress,active.target)}/${active.target}` : '🎯 مأموریت‌های روزانه';
+  }
   create(){
     this.cameras.main.setBackgroundColor('#07101f');
     this.groundY=this.scale.height*0.78;
     this.drawWorld();
     this.showCharacterSelect();
+    void this.refreshMissions();
     this.input.on('pointerdown',(p:Phaser.Input.Pointer)=>this.tap(p.x,p.y));
     this.input.on('pointermove',(p:Phaser.Input.Pointer)=>{if(p.isDown){}});
     this.input.keyboard?.on('keydown-LEFT',()=>this.changeLane(-1));
@@ -86,8 +100,9 @@ class RunnerScene extends Phaser.Scene{
     this.player=this.makeCharacter(this.laneX(),this.groundY-48,this.selected,1);
     this.ui=this.add.text(22,20,'',{fontFamily:'Arial',fontSize:'19px',fontStyle:'bold',color:'#fff'}).setDepth(20);
     this.coinText=this.add.text(w-22,20,'🪙 0',{fontFamily:'Arial',fontSize:'19px',fontStyle:'bold',color:'#fbbf24'}).setOrigin(1,0).setDepth(20);
-    this.missionText=this.add.text(w/2,54,'🎯 مأموریت: ۵۰ سکه جمع کن',{fontFamily:'Arial',fontSize:'14px',color:'#cbd5e1'}).setOrigin(.5).setDepth(20);
+    this.missionText=this.add.text(w/2,54,this.missionSummary(),{fontFamily:'Arial',fontSize:'14px',color:'#cbd5e1'}).setOrigin(.5).setDepth(20);
     this.running=true;
+    void this.refreshMissions();
   }
   update(_:number,dt:number){
     if(!this.running)return;
@@ -130,6 +145,7 @@ class RunnerScene extends Phaser.Scene{
           bestDistance=reward.bestDistance;
           this.progress={...this.progress,coins:reward.coins,xp:reward.xp,bestDistance:reward.bestDistance,activeCharacterId:this.selected.id,updatedAt:new Date().toISOString()};
           this.persistProgress();
+          void this.refreshMissions();
         }else{
           onlineReward=false;
         }
@@ -139,6 +155,7 @@ class RunnerScene extends Phaser.Scene{
     }else{
       this.progress={...this.progress,coins:this.progress.coins+awardedCoins,bestDistance,xp:this.progress.xp+awardedXp,activeCharacterId:this.selected.id,updatedAt:new Date().toISOString()};
       this.persistProgress();
+      void this.refreshMissions();
     }
 
     const w=this.scale.width,h=this.scale.height;
