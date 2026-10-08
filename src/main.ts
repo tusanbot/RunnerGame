@@ -48,6 +48,13 @@ class RunnerScene extends Phaser.Scene {
   velocityY = 0;
   jumpStrength = 13;
   groundY = 0;
+  pausedByUser = false;
+  pauseOverlay?: Phaser.GameObjects.Container;
+  lastObstacleLane = -1;
+  lastObstacleKind: StageObstacleKind | null = null;
+  lastObstacleAt = 0;
+  totalRuns = 0;
+  totalCoinsCollected = 0;
 
   obstacles: Obstacle[] = [];
   coinObjs: Phaser.GameObjects.Arc[] = [];
@@ -217,7 +224,7 @@ class RunnerScene extends Phaser.Scene {
       .setData('persistentUI', true);
     this.createStageBadge();
     this.createSpeedLines();
-    this.showCharacterSelect();
+    this.showMainMenu();
     void this.refreshMissions();
     void this.refreshCharacterProgress();
 
@@ -517,6 +524,7 @@ class RunnerScene extends Phaser.Scene {
 
   showCharacterSelect() {
     this.running = false;
+    this.pausedByUser = false;
     this.clearActors();
     this.createNavigation('character');
 
@@ -641,7 +649,7 @@ class RunnerScene extends Phaser.Scene {
     if (!sprite) return;
 
     const state = this.playerState;
-    const airborne = this.playerY > 2;
+    const airborne = this.playerY < -2;
     const baseScale = state === 'slide' ? 0.52 : state === 'jump' ? 0.76 : state === 'hit' ? 0.82 : 0.72;
 
     sprite.setScale(
@@ -690,6 +698,9 @@ class RunnerScene extends Phaser.Scene {
 
   startGame() {
     this.clearActors();
+    this.pausedByUser = false;
+    this.pauseOverlay?.destroy();
+    this.pauseOverlay = undefined;
     this.createNavigation('game');
 
     this.distance = 0;
@@ -700,6 +711,9 @@ class RunnerScene extends Phaser.Scene {
     this.playerY = 0;
     this.lastSpawn = 0;
     this.lastCoin = 0;
+    this.lastObstacleLane = -1;
+    this.lastObstacleKind = null;
+    this.lastObstacleAt = 0;
     this.playerState = 'idle';
     this.updateStagePresentation(true);
     this.obstacleCount = 0;
@@ -735,6 +749,7 @@ class RunnerScene extends Phaser.Scene {
     const w = this.scale.width;
 
     this.player = this.makeCharacter(this.laneX(), this.groundY - 48, this.selected, 1);
+    this.player.setData('runnerActor', true);
 
     this.ui = this.add
       .text(22, 20, '', {
@@ -804,11 +819,14 @@ class RunnerScene extends Phaser.Scene {
       .setDepth(20);
 
     this.running = true;
+    this.loadRunStats();
+    this.totalRuns += 1;
+    this.persistRunStats();
     void this.refreshMissions();
   }
 
   update(_: number, dt: number) {
-    if (!this.running || this.gameOverInProgress) return;
+    if (!this.running || this.gameOverInProgress || this.pausedByUser) return;
 
     const d = Math.min(dt / 1000, 0.05);
 
@@ -866,10 +884,10 @@ class RunnerScene extends Phaser.Scene {
 
     // Runner physics: jump must actually clear ground obstacles instead of
     // only producing a tiny visual hop. Values are tuned in world-pixels/sec.
-    this.velocityY += 34 * d;
+    this.velocityY += 1500 * d;
     this.playerY += this.velocityY * d;
 
-    if (this.playerY < 0) {
+    if (this.playerY > 0) {
       this.playerY = 0;
       this.velocityY = 0;
     }
@@ -1009,12 +1027,14 @@ class RunnerScene extends Phaser.Scene {
     const dx = Math.abs(coin.x - this.player.x);
     const dy = Math.abs(coin.y - this.player.y);
 
-    const tahaBoost = this.selected.id === 'taha' ? 1.25 : 1;
-    return dx < (this.runEffects.magnet ? 105 : 52) * tahaBoost && dy < (this.runEffects.magnet ? 105 : 70) * tahaBoost;
+    const tahaBoost = this.selected.id === 'taha' ? 1.35 : 1;
+    return dx < (this.runEffects.magnet ? 130 : 72) * tahaBoost && dy < (this.runEffects.magnet ? 130 : 105) * tahaBoost;
   }
 
   private collectCoin(coin: Phaser.GameObjects.Arc) {
     this.coins += 1;
+    this.totalCoinsCollected += 1;
+    this.persistRunStats();
     this.emitPickupFx(coin.x, coin.y);
     this.feedback('light');
 
@@ -1038,18 +1058,19 @@ class RunnerScene extends Phaser.Scene {
   }
 
   spawnObstaclePattern() {
-    const firstLane = Phaser.Math.Between(0, 2);
-    const roll = Math.random();
-    const makeDouble = roll < this.stage.doubleObstacleChance;
-    const makeOverhead = this.obstacleCount > 2 && Math.random() < this.stage.overheadChance;
+    const lanes = [0, 1, 2].filter((lane) => lane !== this.lastObstacleLane);
+    const firstLane = Phaser.Utils.Array.GetRandom(lanes) as number;
+    const makeDouble = this.obstacleCount > 4 && Math.random() < Math.min(0.34, this.stage.doubleObstacleChance);
+    const makeOverhead = this.obstacleCount > 3 && Math.random() < this.stage.overheadChance;
+    const firstKind: StageObstacleKind = makeOverhead ? 'overhead' : 'ground';
 
-    this.spawnObstacle(firstLane, makeOverhead ? 'overhead' : 'ground', 0);
+    this.spawnObstacle(firstLane, firstKind, 0);
 
     if (makeDouble) {
-      const safeLane = Phaser.Math.Between(0, 2);
-      const secondLane = safeLane === firstLane ? (firstLane + 1 + Phaser.Math.Between(0, 1)) % 3 : safeLane;
-      const secondKind: StageObstacleKind = this.stage.id >= 3 && Math.random() < this.stage.overheadChance * 0.65 ? 'overhead' : 'ground';
-      this.spawnObstacle(secondLane, secondKind, 185);
+      const secondCandidates = [0, 1, 2].filter((lane) => lane !== firstLane);
+      const secondLane = Phaser.Utils.Array.GetRandom(secondCandidates) as number;
+      const secondKind: StageObstacleKind = this.stage.id >= 3 && Math.random() < this.stage.overheadChance * 0.45 ? 'overhead' : 'ground';
+      this.spawnObstacle(secondLane, secondKind, 230);
     }
   }
 
@@ -1079,8 +1100,12 @@ class RunnerScene extends Phaser.Scene {
     this.tweens.add({ targets: obstacle, scale: 1, duration: 180, ease: 'Back.easeOut' });
     obstacle.x = this.scale.width + 90 + xOffset;
     obstacle.setDepth(8);
+    obstacle.setData('runnerActor', true);
     this.obstacles.push(obstacle);
     this.obstacleCount += 1;
+    this.lastObstacleLane = lane;
+    this.lastObstacleKind = kind;
+    this.lastObstacleAt = this.time.now;
   }
 
   spawnCoinPattern() {
@@ -1217,7 +1242,7 @@ class RunnerScene extends Phaser.Scene {
     if (this.playerY === 0) {
       // Y grows downward in Phaser. A negative velocity moves the runner upward.
       // With gravity 34, the default jump reaches roughly 75px above ground.
-      this.velocityY = -this.jumpStrength * 5.5;
+      this.velocityY = -this.jumpStrength * 40;
       this.playerState = 'jump';
       this.feedback('light');
     }
@@ -1247,10 +1272,13 @@ class RunnerScene extends Phaser.Scene {
   togglePause() {
     if (!this.running || this.gameOverInProgress) return;
 
-    if (this.scene.isPaused()) {
-      this.scene.resume();
+    if (this.pausedByUser) {
+      this.pausedByUser = false;
+      this.pauseOverlay?.destroy();
+      this.pauseOverlay = undefined;
+      return;
     } else {
-      this.scene.pause();
+      this.pausedByUser = true;
       const overlay = this.add.container(this.scale.width / 2, this.scale.height / 2).setName('pause-overlay').setDepth(100);
       const panel = this.add.rectangle(0, 0, 280, 150, 0x020617, 0.94).setStrokeStyle(2, 0x64748b, 0.9);
       const title = this.add.text(0, -42, '⏸ بازی متوقف شد', {
@@ -1267,10 +1295,12 @@ class RunnerScene extends Phaser.Scene {
         color: '#fff',
       }).setOrigin(0.5);
       resume.on('pointerdown', () => {
+        this.pausedByUser = false;
         overlay.destroy();
-        this.scene.resume();
+        this.pauseOverlay = undefined;
       });
       overlay.add([panel, title, resume, resumeText]);
+      this.pauseOverlay = overlay;
     }
   }
 
@@ -1420,9 +1450,13 @@ class RunnerScene extends Phaser.Scene {
 
   showMainMenu() {
     this.running = false;
+    this.pausedByUser = false;
     this.gameOverInProgress = false;
+    this.pauseOverlay?.destroy();
+    this.pauseOverlay = undefined;
     this.stageBadge?.setVisible(false);
     this.clearActors();
+    this.createNavigation('character');
 
     const w = this.scale.width;
     const h = this.scale.height;
@@ -1439,15 +1473,23 @@ class RunnerScene extends Phaser.Scene {
 
     const buttons: Array<[string, number, () => void]> = [
       ['▶️ شروع بازی', 0x7c3aed, () => this.showCharacterSelect()],
+      ['🎯 مأموریت‌ها', 0x0f766e, () => this.showMetaPanel('missions')],
+      ['🏆 رکورد و رتبه‌بندی', 0x1d4ed8, () => document.querySelector<HTMLButtonElement>('.runner-leaderboard-open')?.click()],
+      ['🏅 دستاوردها', 0xb45309, () => this.showMetaPanel('achievements')],
+      ['🛒 فروشگاه', 0x9333ea, () => document.querySelector<HTMLButtonElement>('.runner-shop-open')?.click()],
       ['⭐ شخصیت‌ها و ارتقا', 0x0f766e, () => void characterProgressUi?.open()],
-      ['🛒 فروشگاه', 0xb45309, () => document.querySelector<HTMLButtonElement>('.runner-shop-open')?.click()],
-      ['🏆 رتبه‌بندی', 0x1d4ed8, () => document.querySelector<HTMLButtonElement>('.runner-leaderboard-open')?.click()],
+      ['📊 آمار من', 0x334155, () => this.showMetaPanel('stats')],
     ];
     buttons.forEach(([label, color, onClick], index) => {
-      const y = h * 0.37 + index * (compact ? 56 : 62);
-      const b = this.add.rectangle(w / 2, y, Math.min(310, w - 44), 48, color, 0.94)
+      const columns = compact ? 1 : 2;
+      const row = Math.floor(index / columns);
+      const col = index % columns;
+      const buttonWidth = compact ? Math.min(310, w - 44) : Math.min(285, (w - 60) / 2);
+      const x = compact ? w / 2 : (col === 0 ? w * 0.34 : w * 0.66);
+      const y = h * 0.36 + row * (compact ? 55 : 58);
+      const b = this.add.rectangle(x, y, buttonWidth, 48, color, 0.94)
         .setStrokeStyle(1, 0xffffff, 0.24).setInteractive({ useHandCursor: true }).setDepth(51).setData('runnerActor', true);
-      const t = this.add.text(w / 2, y, label, { fontFamily: 'Arial', fontSize: '16px', fontStyle: 'bold', color: '#fff' })
+      const t = this.add.text(x, y, label, { fontFamily: 'Arial', fontSize: '16px', fontStyle: 'bold', color: '#fff' })
         .setOrigin(0.5).setDepth(52).setData('runnerActor', true);
       b.on('pointerover', () => b.setScale(1.035));
       b.on('pointerout', () => b.setScale(1));
@@ -1458,6 +1500,57 @@ class RunnerScene extends Phaser.Scene {
     this.add.text(w / 2, h - 48, `🪙 ${this.progress.coins.toLocaleString('fa-IR')} سکه  •  ${this.progress.displayName}`, {
       fontFamily: 'Arial', fontSize: '13px', color: '#94a3b8', fontStyle: 'bold',
     }).setOrigin(0.5).setDepth(51).setData('runnerActor', true);
+  }
+
+  persistRunStats() {
+    const key = 'runner-legends:stats:v1';
+    try {
+      localStorage.setItem(key, JSON.stringify({ totalRuns: this.totalRuns, totalCoinsCollected: this.totalCoinsCollected }));
+    } catch { /* ignore */ }
+  }
+
+  loadRunStats() {
+    try {
+      const raw = localStorage.getItem('runner-legends:stats:v1');
+      if (!raw) return;
+      const data = JSON.parse(raw) as { totalRuns?: number; totalCoinsCollected?: number };
+      this.totalRuns = Number(data.totalRuns ?? 0);
+      this.totalCoinsCollected = Number(data.totalCoinsCollected ?? 0);
+    } catch { /* ignore */ }
+  }
+
+  showMetaPanel(kind: 'missions' | 'achievements' | 'stats') {
+    const w = this.scale.width;
+    const h = this.scale.height;
+    const overlay = this.add.container(w / 2, h / 2).setDepth(120).setData('runnerActor', true);
+    const panel = this.add.rectangle(0, 0, Math.min(560, w - 30), Math.min(500, h - 70), 0x07111f, 0.98).setStrokeStyle(2, 0x7c3aed, 0.7);
+    const title = this.add.text(0, -Math.min(220, h / 2 - 45), kind === 'missions' ? '🎯 مأموریت‌ها' : kind === 'achievements' ? '🏅 دستاوردها' : '📊 آمار من', { fontFamily:'Arial', fontSize:'25px', fontStyle:'bold', color:'#fff' }).setOrigin(0.5);
+    const close = this.add.rectangle(Math.min(245, w / 2 - 45), -Math.min(220, h / 2 - 45), 34, 34, 0x1e293b, 1).setInteractive({useHandCursor:true});
+    const closeText = this.add.text(close.x, close.y, '×', {fontFamily:'Arial',fontSize:'24px',color:'#fff'}).setOrigin(0.5);
+    const body = this.add.text(0, 0, '', {fontFamily:'Arial',fontSize:'15px',color:'#e2e8f0',align:'right',lineSpacing:10,wordWrap:{width:Math.min(490,w-70)}}).setOrigin(0.5);
+    const claim = this.add.rectangle(0, Math.min(205,h/2-85), 220, 46, 0x7c3aed, 1).setInteractive({useHandCursor:true});
+    const claimText = this.add.text(0, claim.y, '🎁 دریافت مأموریت آماده', {fontFamily:'Arial',fontSize:'14px',fontStyle:'bold',color:'#fff'}).setOrigin(0.5);
+    close.on('pointerdown',()=>overlay.destroy());
+    claim.on('pointerdown',async()=>{ await this.claimReadyMission(); overlay.destroy(); });
+    overlay.add([panel,title,close,closeText,body,claim,claimText]);
+
+    if(kind==='stats') {
+      body.setText('👤 '+this.progress.displayName+'\n\n🪙 موجودی: '+this.progress.coins.toLocaleString('fa-IR')+'\n🏆 بهترین رکورد: '+this.progress.bestDistance.toLocaleString('fa-IR')+' متر\n⭐ سطح: '+this.progress.level+'\n✨ تجربه: '+this.progress.xp.toLocaleString('fa-IR')+' XP\n🎮 تعداد بازی‌ها: '+this.totalRuns.toLocaleString('fa-IR')+'\n🪙 سکه‌های جمع‌شده: '+this.totalCoinsCollected.toLocaleString('fa-IR'));
+      claim.setVisible(false); claimText.setVisible(false);
+    } else if(kind==='achievements') {
+      const best=this.progress.bestDistance;
+      const achievements=[
+        [best>=100,'🏃 اولین ۱۰۰ متر','۱۰۰ متر بدو'],[best>=1000,'🔥 دونده حرفه‌ای','۱۰۰۰ متر رکورد بزن'],[best>=5000,'👑 افسانه','۵۰۰۰ متر رکورد بزن'],[this.totalCoinsCollected>=25,'🪙 جمع‌کننده','۲۵ سکه جمع کن'],[this.totalCoinsCollected>=250,'💰 معدن‌چی','۲۵۰ سکه جمع کن'],[this.totalRuns>=10,'🎮 سمج','۱۰ بازی انجام بده'],[this.progress.level>=5,'⭐ سطح ۵','به سطح ۵ برس']
+      ];
+      body.setText(achievements.map(a=>(a[0]?'✅':'⬜')+' '+a[1]+'\n   '+a[2]).join('\n\n'));
+      claim.setVisible(false); claimText.setVisible(false);
+    } else {
+      const snapshot=this.missionSnapshot;
+      if(!snapshot?.missions.length) body.setText(this.progress.userId==='guest' ? 'برای مأموریت‌های روزانه وارد حساب شو.\n\nمأموریت‌ها پس از اتصال Supabase به صورت روزانه و هفتگی نمایش داده می‌شوند.' : 'مأموریتی برای نمایش وجود ندارد.');
+      else body.setText(snapshot.missions.map(m=>(m.completed?'✅':'🎯')+' '+m.title+'\n'+m.description+'\nپیشرفت: '+Math.min(m.progress,m.target)+'/'+m.target+'  •  🪙 '+m.rewardCoins+'  •  ✨ '+m.rewardXp+(m.claimed?'\nدریافت شده':'')).join('\n\n'));
+      const ready=Boolean(snapshot?.missions.some(m=>m.completed&&!m.claimed));
+      claim.setVisible(ready); claimText.setVisible(ready);
+    }
   }
 
   clearActors() {
