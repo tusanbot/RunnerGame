@@ -510,7 +510,7 @@ class RunnerScene extends Phaser.Scene {
   updatePlayerAnimation() {
     if (!this.player) return;
     const sprite = this.player.getData('sprite') as Phaser.GameObjects.Image | undefined;
-    const shadow = this.player.getData('shadow') as Phaser.GameObjects.Ellipse | undefined;
+    const shadow = this.player.getData('shadow') as any;
     if (!sprite) return;
 
     const state = this.playerState;
