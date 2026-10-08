@@ -1,0 +1,9 @@
+{
+  "name":"runner-game",
+  "private":true,
+  "version":"0.1.0",
+  "type":"module",
+  "scripts":{"dev":"vite","build":"tsc && vite build","preview":"vite preview","android:sync":"npm run build && npx cap sync"},
+  "dependencies":{"@capacitor/core":"^7.4.3","phaser":"^3.90.0"},
+  "devDependencies":{"@capacitor/cli":"^7.4.3","@types/node":"^24.7.2","typescript":"^5.9.3","vite":"^7.1.9"}
+}
