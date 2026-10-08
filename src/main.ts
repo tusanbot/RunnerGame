@@ -54,7 +54,7 @@ class RunnerScene extends Phaser.Scene{
     this.add.text(w/2,h-28,'برای شروع روی یک شخصیت بزن',{fontFamily:'Arial',fontSize:'14px',color:'#64748b'}).setOrigin(.5);
   }
   makeCharacter(x:number,y:number,c:Character,scale=1){
-    const group=this.add.container(x,y).setScale(scale);
+    const group=this.add.container(x,y).setScale(scale).setData('runnerActor',true);
     const body=this.add.graphics(); body.fillStyle(c.color,1);body.fillRoundedRect(-22,-10,44,55,18);
     body.fillStyle(c.color,1);body.fillCircle(0,-31,22);
     body.fillStyle(0x111827,1);body.fillCircle(-8,-34,3);body.fillCircle(8,-34,3);
