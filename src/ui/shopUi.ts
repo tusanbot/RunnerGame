@@ -11,13 +11,13 @@ const loadoutKey: Record<string, keyof RunnerLoadout> = {
 export class ShopUi {
   private root = document.createElement('div');
   private getProgress: () => PlayerProgress;
-  private setProgress: (p: PlayerProgress) => void;
   private progress: PlayerProgress;
+  private setProgressCallback: (p: PlayerProgress) => void;
   private loadout: RunnerLoadout = getRunnerLoadout();
 
   constructor(getProgress: () => PlayerProgress, setProgress: (p: PlayerProgress) => void) {
     this.getProgress = getProgress;
-    this.setProgress = setProgress;
+    this.setProgressCallback = setProgress;
     this.progress = getProgress();
     this.root.className = 'runner-shop-root';
     this.root.innerHTML = '<button class="runner-shop-open">🛒 فروشگاه</button><div class="runner-shop-backdrop hidden"><section class="runner-shop-modal"><button class="runner-shop-close">×</button><div class="runner-shop-title">🛒 فروشگاه</div><div class="runner-shop-balance"></div><div class="runner-shop-loadout"></div><div class="runner-shop-grid"></div></section></div>';
@@ -66,7 +66,7 @@ export class ShopUi {
           inventory: { ...this.progress.inventory, [id]: Number(result.quantity) },
           updatedAt: new Date().toISOString(),
         };
-        this.setProgress(this.progress);
+        this.setProgressCallback(this.progress);
       }
       await this.render();
     });
@@ -99,6 +99,6 @@ export class ShopUi {
       '</article>';
   }
 
-  setProgress(progress: PlayerProgress) { this.progress = progress; }
+  setProgress(progress: PlayerProgress) { this.progress = progress; this.setProgressCallback(progress); }
   destroy() { this.root.remove(); }
 }
