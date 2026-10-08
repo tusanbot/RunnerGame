@@ -22,10 +22,11 @@ export async function finishSecureRun(
   runId: string,
   distance: number,
   collectedCoins: number,
+  characterId: string,
 ): Promise<RunReward | null> {
   if (!supabase) return null;
   const { data, error } = await supabase.functions.invoke('finish-run', {
-    body: { runId, distance: Math.floor(distance), collectedCoins: Math.floor(collectedCoins) },
+    body: { runId, distance: Math.floor(distance), collectedCoins: Math.floor(collectedCoins), characterId },
   });
   if (error || !data) {
     console.warn('[RunnerGame] Secure reward claim failed:', error?.message);
