@@ -228,6 +228,7 @@ class RunnerScene extends Phaser.Scene {
       .setData('persistentUI', true);
     this.createStageBadge();
     this.createSpeedLines();
+    this.loadRunStats();
     this.showMainMenu();
     void this.refreshMissions();
     void this.refreshCharacterProgress();
