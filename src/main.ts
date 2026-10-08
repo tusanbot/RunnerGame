@@ -2,6 +2,7 @@ import Phaser from 'phaser';
 import './styles.css';
 import { AuthUi } from './ui/authUi';
 import { loadLocalProgress, saveCloudProgress, saveLocalProgress, type PlayerProgress } from './services/playerProgress';
+import { finishSecureRun, startSecureRun } from './services/runnerRewards';
 
 type Character = { id:string; name:string; color:number; accent:number; ability:string; speed:number; jump:number; };
 const characters:Character[]=[
@@ -79,7 +80,8 @@ class RunnerScene extends Phaser.Scene{
     group.add(body); return group;
   }
   startGame(){
-    this.clearActors(); this.distance=0;this.coins=0;this.speed=390;this.lane=1;this.velocityY=0;this.playerY=0;this.lastSpawn=0;this.lastCoin=0;
+    this.clearActors(); this.distance=0;this.coins=0;this.speed=390;this.lane=1;this.velocityY=0;this.playerY=0;this.lastSpawn=0;this.lastCoin=0;this.secureRunId=null;
+    if(this.progress.userId!=='guest') void startSecureRun().then(runId=>{if(this.running)this.secureRunId=runId;});
     const w=this.scale.width,h=this.scale.height;
     this.player=this.makeCharacter(this.laneX(),this.groundY-48,this.selected,1);
     this.ui=this.add.text(22,20,'',{fontFamily:'Arial',fontSize:'19px',fontStyle:'bold',color:'#fff'}).setDepth(20);
@@ -108,14 +110,44 @@ class RunnerScene extends Phaser.Scene{
   changeLane(n:number){if(!this.running)return;this.lane=Phaser.Math.Clamp(this.lane+n,0,2);}
   jump(){if(this.running&&this.playerY===0)this.velocityY=-13;}
   tap(x:number,y:number){if(!this.running)return; if(y<this.scale.height*.45)this.jump();else this.changeLane(x<this.scale.width/2?-1:1);}
-  gameOver(){
-    if(!this.running)return;this.running=false;
-    this.progress={...this.progress,coins:this.progress.coins+this.coins,bestDistance:Math.max(this.progress.bestDistance,Math.floor(this.distance)),activeCharacterId:this.selected.id,xp:this.progress.xp+Math.floor(this.distance/10)+this.coins,updatedAt:new Date().toISOString()};
-    this.persistProgress();
+  async gameOver(){
+    if(!this.running)return;
+    this.running=false;
+    const finalDistance=Math.floor(this.distance);
+    const collectedCoins=this.coins;
+    let awardedCoins=collectedCoins;
+    let awardedXp=Math.floor(finalDistance/10)+collectedCoins;
+    let bestDistance=Math.max(this.progress.bestDistance,finalDistance);
+    let onlineReward=true;
+
+    if(this.progress.userId!=='guest'){
+      const runId=this.secureRunId;
+      if(runId){
+        const reward=await finishSecureRun(runId,finalDistance,collectedCoins);
+        if(reward){
+          awardedCoins=reward.awardedCoins;
+          awardedXp=reward.awardedXp;
+          bestDistance=reward.bestDistance;
+          this.progress={...this.progress,coins:reward.coins,xp:reward.xp,bestDistance:reward.bestDistance,activeCharacterId:this.selected.id,updatedAt:new Date().toISOString()};
+          this.persistProgress();
+        }else{
+          onlineReward=false;
+        }
+      }else{
+        onlineReward=false;
+      }
+    }else{
+      this.progress={...this.progress,coins:this.progress.coins+awardedCoins,bestDistance,xp:this.progress.xp+awardedXp,activeCharacterId:this.selected.id,updatedAt:new Date().toISOString()};
+      this.persistProgress();
+    }
+
     const w=this.scale.width,h=this.scale.height;
     this.add.rectangle(w/2,h/2,w,h,0x020617,.78).setDepth(30);
     this.add.text(w/2,h/2-70,'بازی تمام شد!',{fontFamily:'Arial',fontSize:'34px',fontStyle:'bold',color:'#fff'}).setOrigin(.5).setDepth(31);
-    this.add.text(w/2,h/2-20,`🏃 ${Math.floor(this.distance)} متر   🪙 +${this.coins}`,{fontFamily:'Arial',fontSize:'20px',color:'#fbbf24'}).setOrigin(.5).setDepth(31);
+    const rewardText=onlineReward
+      ? `🏃 ${finalDistance} متر   🪙 +${awardedCoins}   ✨ +${awardedXp} XP`
+      : `🏃 ${finalDistance} متر   ⚠️ پاداش آنلاین ثبت نشد`;
+    this.add.text(w/2,h/2-20,rewardText,{fontFamily:'Arial',fontSize:'18px',color:'#fbbf24',align:'center',wordWrap:{width:w-40}}).setOrigin(.5).setDepth(31);
     const b=this.add.rectangle(w/2,h/2+55,210,58,0x7c3aed).setInteractive().setDepth(31);
     this.add.text(w/2,h/2+55,'دوباره بازی کن',{fontFamily:'Arial',fontSize:'18px',fontStyle:'bold',color:'#fff'}).setOrigin(.5).setDepth(32);
     b.on('pointerdown',()=>this.startGame());
