@@ -1,5 +1,7 @@
 import Phaser from 'phaser';
 import './styles.css';
+import { AuthUi } from './ui/authUi';
+import { loadLocalProgress, saveCloudProgress, saveLocalProgress, type PlayerProgress } from './services/playerProgress';
 
 type Character = { id:string; name:string; color:number; accent:number; ability:string; speed:number; jump:number; };
 const characters:Character[]=[
@@ -15,7 +17,19 @@ class RunnerScene extends Phaser.Scene{
   selected=characters[0]; running=false; distance=0; coins=0; speed=420; lane=1; player!:Phaser.GameObjects.Container;
   playerY=0; velocityY=0; groundY=0; obstacles:Phaser.GameObjects.Container[]=[]; coinObjs:Phaser.GameObjects.Arc[]=[];
   ui!:Phaser.GameObjects.Text; coinText!:Phaser.GameObjects.Text; missionText!:Phaser.GameObjects.Text; lastSpawn=0; lastCoin=0;
+  progress:PlayerProgress=loadLocalProgress() ?? {userId:'guest',displayName:'بازیکن',coins:0,bestDistance:0,level:1,xp:0,activeCharacterId:'amirreza',unlockedCharacterIds:['amirreza'],inventory:{},completedMissionIds:[],updatedAt:new Date().toISOString()};
   constructor(){super('RunnerScene');}
+  setProgress(progress:PlayerProgress){
+    this.progress=progress;
+    const preferred=characters.find(c=>c.id===progress.activeCharacterId && progress.unlockedCharacterIds.includes(c.id));
+    if(preferred) this.selected=preferred;
+    if(!this.running) this.showCharacterSelect();
+  }
+  persistProgress(){
+    this.progress={...this.progress,coins:Math.max(0,this.progress.coins),bestDistance:Math.max(this.progress.bestDistance,Math.floor(this.distance)),activeCharacterId:this.selected.id,updatedAt:new Date().toISOString()};
+    saveLocalProgress(this.progress);
+    if(this.progress.userId!=='guest') void saveCloudProgress(this.progress);
+  }
   create(){
     this.cameras.main.setBackgroundColor('#07101f');
     this.groundY=this.scale.height*0.78;
@@ -45,13 +59,15 @@ class RunnerScene extends Phaser.Scene{
     this.add.text(w/2,92,'قهرمانت را انتخاب کن',{fontFamily:'Arial',fontSize:'18px',color:'#94a3b8'}).setOrigin(.5);
     characters.forEach((c,i)=>{
       const x=80+(i%3)*(w-160)/2,y=175+Math.floor(i/3)*210;
-      const card=this.add.rectangle(x,y,170,170,0x111c2f,.95).setStrokeStyle(2,c.accent,.8).setInteractive();
-      this.add.text(x,y-57,c.name,{fontFamily:'Arial',fontSize:'20px',fontStyle:'bold',color:'#fff'}).setOrigin(.5);
+      const unlocked=this.progress.unlockedCharacterIds.includes(c.id);
+      const card=this.add.rectangle(x,y,170,170,unlocked?0x111c2f:0x0b1222,.95).setStrokeStyle(2,unlocked?c.accent:0x475569,.8).setInteractive({useHandCursor:true});
+      this.add.text(x,y-57,c.name,{fontFamily:'Arial',fontSize:'20px',fontStyle:'bold',color:unlocked?'#fff':'#64748b'}).setOrigin(.5);
       this.makeCharacter(x,y+8,c,0.85);
-      this.add.text(x,y+58,c.ability,{fontFamily:'Arial',fontSize:'13px',color:'#cbd5e1'}).setOrigin(.5);
-      card.on('pointerdown',()=>{this.selected=c;this.startGame();});
+      if(!unlocked) this.add.text(x,y+8,'🔒',{fontFamily:'Arial',fontSize:'30px'}).setOrigin(.5).setDepth(5);
+      this.add.text(x,y+58,unlocked?c.ability:'قفل است',{fontFamily:'Arial',fontSize:'13px',color:unlocked?'#cbd5e1':'#64748b'}).setOrigin(.5);
+      if(unlocked) card.on('pointerdown',()=>{this.selected=c;this.startGame();});
     });
-    this.add.text(w/2,h-28,'برای شروع روی یک شخصیت بزن',{fontFamily:'Arial',fontSize:'14px',color:'#64748b'}).setOrigin(.5);
+    this.add.text(w/2,h-28,`🪙 موجودی: ${this.progress.coins}  •  برای شروع روی یک شخصیت بزن`,{fontFamily:'Arial',fontSize:'14px',color:'#94a3b8'}).setOrigin(.5);
   }
   makeCharacter(x:number,y:number,c:Character,scale=1){
     const group=this.add.container(x,y).setScale(scale).setData('runnerActor',true);
@@ -82,7 +98,7 @@ class RunnerScene extends Phaser.Scene{
     this.lastSpawn+=dt;this.lastCoin+=dt;
     if(this.lastSpawn>Math.max(520,1050-this.distance*1.5)){this.spawnObstacle();this.lastSpawn=0;}
     if(this.lastCoin>360){this.spawnCoin();this.lastCoin=0;}
-    [...this.obstacles].forEach(o=>{o.x-=this.speed*d;if(o.x<-100){o.destroy();this.obstacles=this.obstacles.filter(x=>x!==o);}else if(Phaser.Geom.Intersects.RectangleToRectangle(this.player.getBounds(),o.getBounds()))this.gameOver();});
+    [...this.obstacles].forEach(o=>{o.x-=this.speed*d;if(o.x<-100){o.destroy();this.obstacles=this.obstacles.filter(x=>x!==o);}else if(o.getData('lane')===this.lane && Phaser.Geom.Intersects.RectangleToRectangle(this.player.getBounds(),o.getBounds()))this.gameOver();});
     [...this.coinObjs].forEach(c=>{c.x-=this.speed*d;if(c.x<-50){c.destroy();this.coinObjs=this.coinObjs.filter(x=>x!==c);}else if(Phaser.Geom.Intersects.RectangleToRectangle(this.player.getBounds(),c.getBounds())){this.coins++;c.destroy();this.coinObjs=this.coinObjs.filter(x=>x!==c);}});
   }
   spawnObstacle(){const lane=Phaser.Math.Between(0,2),o=this.add.container(this.scale.width+80,this.groundY-35);const g=this.add.graphics();g.fillStyle(0xef4444,1);g.fillRoundedRect(-25,-35,50,70,10);g.fillStyle(0xfca5a5,1);g.fillRect(-17,-27,34,7);o.add(g);o.x=this.scale.width+80;o.setData('lane',lane);o.y=this.groundY-35;this.obstacles.push(o);o.x+=lane*0;this.positionLaneObject(o,lane);}
@@ -94,14 +110,18 @@ class RunnerScene extends Phaser.Scene{
   tap(x:number,y:number){if(!this.running)return; if(y<this.scale.height*.45)this.jump();else this.changeLane(x<this.scale.width/2?-1:1);}
   gameOver(){
     if(!this.running)return;this.running=false;
+    this.progress={...this.progress,coins:this.progress.coins+this.coins,bestDistance:Math.max(this.progress.bestDistance,Math.floor(this.distance)),activeCharacterId:this.selected.id,xp:this.progress.xp+Math.floor(this.distance/10)+this.coins,updatedAt:new Date().toISOString()};
+    this.persistProgress();
     const w=this.scale.width,h=this.scale.height;
     this.add.rectangle(w/2,h/2,w,h,0x020617,.78).setDepth(30);
     this.add.text(w/2,h/2-70,'بازی تمام شد!',{fontFamily:'Arial',fontSize:'34px',fontStyle:'bold',color:'#fff'}).setOrigin(.5).setDepth(31);
-    this.add.text(w/2,h/2-20,`🏃 ${Math.floor(this.distance)} متر   🪙 ${this.coins}`,{fontFamily:'Arial',fontSize:'20px',color:'#fbbf24'}).setOrigin(.5).setDepth(31);
+    this.add.text(w/2,h/2-20,`🏃 ${Math.floor(this.distance)} متر   🪙 +${this.coins}`,{fontFamily:'Arial',fontSize:'20px',color:'#fbbf24'}).setOrigin(.5).setDepth(31);
     const b=this.add.rectangle(w/2,h/2+55,210,58,0x7c3aed).setInteractive().setDepth(31);
     this.add.text(w/2,h/2+55,'دوباره بازی کن',{fontFamily:'Arial',fontSize:'18px',fontStyle:'bold',color:'#fff'}).setOrigin(.5).setDepth(32);
     b.on('pointerdown',()=>this.startGame());
   }
   clearActors(){this.children.list.filter(o=>(o as any).getData?.('runnerActor')||o instanceof Phaser.GameObjects.Text).forEach(o=>{if(o!==this.children.list[0])o.destroy();});this.obstacles.forEach(o=>o.destroy());this.coinObjs.forEach(o=>o.destroy());this.obstacles=[];this.coinObjs=[];}
 }
-new Phaser.Game({type:Phaser.AUTO,parent:'app',width:'100%',height:'100%',scale:{mode:Phaser.Scale.RESIZE,autoCenter:Phaser.Scale.CENTER_BOTH},backgroundColor:'#07101f',scene:RunnerScene,render:{antialias:true,roundPixels:false}});
+const game=new Phaser.Game({type:Phaser.AUTO,parent:'app',width:'100%',height:'100%',scale:{mode:Phaser.Scale.RESIZE,autoCenter:Phaser.Scale.CENTER_BOTH},backgroundColor:'#07101f',scene:RunnerScene,render:{antialias:true,roundPixels:false}});
+const authUi=new AuthUi((state)=>{const scene=game.scene.getScene('RunnerScene') as RunnerScene | undefined;if(scene && state.progress) scene.setProgress(state.progress);});
+window.addEventListener('beforeunload',()=>authUi.destroy());
