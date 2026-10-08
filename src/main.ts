@@ -9,7 +9,7 @@ import { clearRunnerLoadout, getRunnerLoadout, type RunnerLoadout } from './serv
 import { getCharacterProgress, type CharacterProgress } from './services/characterProgression';
 import { CharacterProgressUi } from './ui/characterProgressUi';
 import { LeaderboardUi } from './ui/leaderboardUi';
-import { getRunnerStage, RUNNER_STAGES, type RunnerStage } from './game/stages';
+import { getRunnerStage, RUNNER_STAGES, type RunnerStage, type StageObstacleKind } from './game/stages';
 
 type Character = {
   id: string;
