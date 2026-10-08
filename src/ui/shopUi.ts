@@ -27,7 +27,6 @@ export class ShopUi {
     (this.root.querySelector('.runner-shop-close') as HTMLButtonElement).onclick = () => backdrop.classList.add('hidden');
     (this.root.querySelector('.runner-shop-open') as HTMLButtonElement).onclick = async () => {
       this.progress = this.getProgress();
-      if (this.progress.userId === 'guest') { this.showMessage('برای خرید آنلاین ابتدا وارد حساب شوید.'); return; }
       this.loadout = getRunnerLoadout();
       backdrop.classList.remove('hidden');
       await this.render();
@@ -45,6 +44,7 @@ export class ShopUi {
   async render() {
     const items = await getShopItems();
     this.loadout = getRunnerLoadout();
+    this.progress = this.getProgress();
     (this.root.querySelector('.runner-shop-balance') as HTMLElement).textContent = '🪙 موجودی: ' + this.progress.coins;
     (this.root.querySelector('.runner-shop-loadout') as HTMLElement).innerHTML =
       '<div class="runner-shop-loadout-title">🎒 تجهیزات بازی بعدی</div><div class="runner-shop-loadout-help">آیتم را انتخاب کن؛ هنگام شروع بازی فقط همان یک عدد مصرف می‌شود.</div><div class="runner-shop-loadout-chips">' +
