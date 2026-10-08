@@ -869,7 +869,7 @@ class RunnerScene extends Phaser.Scene {
     this.velocityY += 34 * d;
     this.playerY += this.velocityY * d;
 
-    if (this.playerY > 0) {
+    if (this.playerY < 0) {
       this.playerY = 0;
       this.velocityY = 0;
     }
@@ -879,7 +879,7 @@ class RunnerScene extends Phaser.Scene {
 
     this.player.y = this.groundY - 48 + this.playerY;
     if (this.playerState !== 'hit') {
-      this.playerState = this.playerY > 2 ? 'jump' : this.isSliding() ? 'slide' : 'run';
+      this.playerState = this.playerY < -2 ? 'jump' : this.isSliding() ? 'slide' : 'run';
     }
     this.updatePlayerAnimation();
     const runBob = this.playerY === 0 ? Math.sin(this.worldTime / 85) * 3 : 0;
@@ -1215,7 +1215,8 @@ class RunnerScene extends Phaser.Scene {
   jump() {
     if (!this.running || this.gameOverInProgress) return;
     if (this.playerY === 0) {
-      // ~76px peak with the default gravity: enough to clear a ground obstacle.
+      // Y grows downward in Phaser. A negative velocity moves the runner upward.
+      // With gravity 34, the default jump reaches roughly 75px above ground.
       this.velocityY = -this.jumpStrength * 5.5;
       this.playerState = 'jump';
       this.feedback('light');
