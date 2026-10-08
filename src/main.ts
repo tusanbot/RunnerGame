@@ -503,13 +503,12 @@ class RunnerScene extends Phaser.Scene {
     if (this.progress.userId !== 'guest') {
       const loadout: RunnerLoadout = getRunnerLoadout();
       void startSecureRun(loadout).then((run) => {
+        if (!run) return;
+        clearRunnerLoadout();
         if (!this.running) return;
-        if (run) {
-          this.secureRunId = run.runId;
-          this.runEffects = run.effects;
-          if (run.effects.turbo) this.turboUntil = this.time.now + 8000;
-          clearRunnerLoadout();
-        }
+        this.secureRunId = run.runId;
+        this.runEffects = run.effects;
+        if (run.effects.turbo) this.turboUntil = this.time.now + 8000;
       });
     }
 
