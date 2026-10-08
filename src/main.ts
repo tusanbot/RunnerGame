@@ -208,7 +208,10 @@ class RunnerScene extends Phaser.Scene {
     this.drawWorld();
     this.roadGlow = this.add.graphics().setDepth(3);
     this.stage = RUNNER_STAGES[0];
-    this.stageAtmosphere = this.add.rectangle(0, 0, this.scale.width, this.scale.height, 0x000000, 0).setOrigin(0).setDepth(1);
+    this.stageAtmosphere = this.add.rectangle(0, 0, this.scale.width, this.scale.height, 0x000000, 0)
+      .setOrigin(0)
+      .setDepth(1)
+      .setData('persistentUI', true);
     this.createStageBadge();
     this.createSpeedLines();
     this.showCharacterSelect();
@@ -301,18 +304,19 @@ class RunnerScene extends Phaser.Scene {
     const w = this.scale.width;
     const panel = this.add.rectangle(0, 0, 236, 48, 0x020617, 0.76)
       .setOrigin(0)
-      .setStrokeStyle(1, 0x334155, 0.9);
+      .setStrokeStyle(1, 0x334155, 0.9)
+      .setData('persistentUI', true);
     const title = this.add.text(16, 8, '', {
       fontFamily: 'Arial',
       fontSize: '15px',
       fontStyle: 'bold',
       color: '#fff',
-    });
+    }).setData('persistentUI', true);
     const subtitle = this.add.text(16, 28, '', {
       fontFamily: 'Arial',
       fontSize: '10px',
       color: '#cbd5e1',
-    });
+    }).setData('persistentUI', true);
     this.stageBadge = this.add.container(14, 122, [panel, title, subtitle]).setDepth(20);
     this.stageBadge.setVisible(false);
     this.stageBadge.setData('title', title);
@@ -514,83 +518,116 @@ class RunnerScene extends Phaser.Scene {
 
     const w = this.scale.width;
     const h = this.scale.height;
+    const compact = w < 620;
 
-    this.add
-      .text(w / 2, 55, 'RUNNER LEGENDS', {
+    // Modern selection backdrop: layered panels, glow and depth instead of flat cards.
+    const glow = this.add.circle(w / 2, h * 0.44, Math.min(w, h) * 0.32, 0x7c3aed, 0.07)
+      .setData('runnerActor', true);
+    this.tweens.add({
+      targets: glow,
+      scale: 1.12,
+      alpha: 0.035,
+      duration: 2400,
+      yoyo: true,
+      repeat: -1,
+      ease: 'Sine.easeInOut',
+    });
+
+    const title = this.add.text(w / 2, compact ? 54 : 48, 'RUNNER LEGENDS', {
+      fontFamily: 'Arial',
+      fontSize: compact ? '26px' : '32px',
+      fontStyle: 'bold',
+      color: '#ffffff',
+      stroke: '#020617',
+      strokeThickness: 6,
+    }).setOrigin(0.5).setData('runnerActor', true);
+
+    this.add.text(w / 2, compact ? 82 : 84, 'قهرمانت را انتخاب کن', {
+      fontFamily: 'Arial',
+      fontSize: compact ? '15px' : '18px',
+      color: '#c4b5fd',
+      fontStyle: 'bold',
+    }).setOrigin(0.5).setData('runnerActor', true);
+
+    const columns = compact ? 2 : 3;
+    const cardW = compact ? Math.min(178, (w - 42) / 2) : 190;
+    const cardH = compact ? 185 : 205;
+    const gapX = compact ? 12 : 18;
+    const gapY = compact ? 12 : 16;
+    const totalW = columns * cardW + (columns - 1) * gapX;
+    const startX = (w - totalW) / 2 + cardW / 2;
+    const startY = compact ? 132 : 142;
+
+    characters.forEach((character, i) => {
+      const col = i % columns;
+      const row = Math.floor(i / columns);
+      const x = startX + col * (cardW + gapX);
+      const y = startY + row * (cardH + gapY);
+      const unlocked = this.progress.unlockedCharacterIds.includes(character.id);
+
+      const card = this.add.rectangle(x, y, cardW, cardH, 0x0b1222, 0.94)
+        .setStrokeStyle(2, unlocked ? character.accent : 0x334155, unlocked ? 0.9 : 0.65)
+        .setInteractive({ useHandCursor: true })
+        .setData('runnerActor', true);
+
+      const inner = this.add.rectangle(x, y + 5, cardW - 8, cardH - 8, 0x111c31, 0.82)
+        .setStrokeStyle(1, unlocked ? 0xffffff : 0x475569, 0.08)
+        .setData('runnerActor', true);
+
+      this.add.text(x, y - cardH / 2 + 25, character.name, {
         fontFamily: 'Arial',
-        fontSize: '30px',
+        fontSize: compact ? '17px' : '19px',
         fontStyle: 'bold',
-        color: '#ffffff',
-      })
-      .setOrigin(0.5);
+        color: unlocked ? '#ffffff' : '#64748b',
+      }).setOrigin(0.5).setData('runnerActor', true);
 
-    this.add
-      .text(w / 2, 92, 'قهرمانت را انتخاب کن', {
+      const hero = this.makeCharacter(x, y + 4, character, compact ? 0.72 : 0.82);
+      hero.setData('runnerActor', true);
+
+      const stat = this.add.text(x, y + cardH / 2 - 31, unlocked ? `⚡ ${character.ability}` : '🔒 قفل است', {
         fontFamily: 'Arial',
-        fontSize: '18px',
-        color: '#94a3b8',
-      })
-      .setOrigin(0.5);
+        fontSize: compact ? '11px' : '12px',
+        fontStyle: 'bold',
+        color: unlocked ? '#e2e8f0' : '#64748b',
+        align: 'center',
+      }).setOrigin(0.5).setData('runnerActor', true);
 
-    characters.forEach((c, i) => {
-      const x = 80 + (i % 3) * (w - 160) / 2;
-      const y = 175 + Math.floor(i / 3) * 210;
-      const unlocked = this.progress.unlockedCharacterIds.includes(c.id);
-
-      const card = this.add
-        .rectangle(x, y, 170, 170, unlocked ? 0x111c2f : 0x0b1222, 0.95)
-        .setStrokeStyle(2, unlocked ? c.accent : 0x475569, 0.8)
-        .setInteractive({ useHandCursor: true });
-
-      this.add
-        .text(x, y - 57, c.name, {
-          fontFamily: 'Arial',
-          fontSize: '20px',
-          fontStyle: 'bold',
-          color: unlocked ? '#fff' : '#64748b',
-        })
-        .setOrigin(0.5);
-
-      this.makeCharacter(x, y + 8, c, 0.85);
+      const accent = this.add.rectangle(x, y + cardH / 2 - 9, cardW * 0.54, 3, character.accent, unlocked ? 0.9 : 0.2)
+        .setOrigin(0.5).setData('runnerActor', true);
 
       if (!unlocked) {
-        this.add.text(x, y + 8, '🔒', { fontFamily: 'Arial', fontSize: '30px' }).setOrigin(0.5).setDepth(5);
-      }
-
-      this.add
-        .text(x, y + 58, unlocked ? c.ability : 'قفل است', {
+        this.add.text(x, y + 4, '🔒', {
           fontFamily: 'Arial',
-          fontSize: '13px',
-          color: unlocked ? '#cbd5e1' : '#64748b',
-        })
-        .setOrigin(0.5);
-
-      if (unlocked) {
+          fontSize: '27px',
+        }).setOrigin(0.5).setDepth(6).setData('runnerActor', true);
+        card.setAlpha(0.78);
+        inner.setAlpha(0.55);
+      } else {
+        card.on('pointerover', () => {
+          this.tweens.add({ targets: [card, inner], scale: 1.025, duration: 120 });
+          this.tweens.add({ targets: hero, y: y - 2, duration: 120, ease: 'Cubic.easeOut' });
+        });
+        card.on('pointerout', () => {
+          this.tweens.add({ targets: [card, inner], scale: 1, duration: 120 });
+          this.tweens.add({ targets: hero, y, duration: 120, ease: 'Cubic.easeOut' });
+        });
         card.on('pointerdown', () => {
-          this.selected = c;
+          this.selected = character;
           this.startGame();
         });
       }
+
+      void stat;
+      void accent;
     });
 
-    this.add
-      .text(
-        w / 2,
-        h - 28,
-        `🪙 موجودی: ${this.progress.coins}  •  برای شروع روی یک شخصیت بزن`,
-        { fontFamily: 'Arial', fontSize: '14px', color: '#94a3b8' },
-      )
-      .setOrigin(0.5);
-
-    if (this.progress.userId !== 'guest') {
-      this.add
-        .text(w / 2, h - 58, '⭐ ارتقا و باز کردن شخصیت‌ها از دکمه بالای صفحه', {
-          fontFamily: 'Arial',
-          fontSize: '13px',
-          color: '#c4b5fd',
-        })
-        .setOrigin(0.5);
-    }
+    this.add.text(w / 2, h - (compact ? 24 : 30),
+      `🪙 ${this.progress.coins.toLocaleString('fa-IR')} سکه  •  برای شروع یک قهرمان را انتخاب کن`, {
+        fontFamily: 'Arial',
+        fontSize: compact ? '12px' : '14px',
+        color: '#94a3b8',
+        fontStyle: 'bold',
+      }).setOrigin(0.5).setData('runnerActor', true);
   }
 
   updatePlayerAnimation() {
@@ -1317,14 +1354,19 @@ class RunnerScene extends Phaser.Scene {
     this.obstacles = [];
     this.coinObjs = [];
 
-    this.children.list
+    // Only destroy temporary runner UI/actors. Persistent scene chrome such as
+    // stageBadge and stageAtmosphere must survive between character selection
+    // and gameplay.
+    [...this.children.list]
       .filter((o) => {
-        const data = (o as Phaser.GameObjects.GameObject).getData?.('runnerActor');
-        return data === true || o instanceof Phaser.GameObjects.Text || o instanceof Phaser.GameObjects.Rectangle;
+        const object = o as Phaser.GameObjects.GameObject;
+        if (object.getData?.('persistentUI') === true) return false;
+        return object.getData?.('runnerActor') === true
+          || object instanceof Phaser.GameObjects.Text
+          || object instanceof Phaser.GameObjects.Rectangle;
       })
       .forEach((o) => o.destroy());
-  }
-}
+  }}
 
 const game = new Phaser.Game({
   type: Phaser.AUTO,
