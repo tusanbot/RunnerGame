@@ -193,7 +193,7 @@ class RunnerScene extends Phaser.Scene {
 
     this.drawWorld();
     this.stage = RUNNER_STAGES[0];
-    this.stageAtmosphere = this.add.rectangle(w, h, 0, 0, 0x000000, 0).setOrigin(0).setDepth(1);
+    this.stageAtmosphere = this.add.rectangle(0, 0, this.scale.width, this.scale.height, 0x000000, 0).setOrigin(0).setDepth(1);
     this.createStageBadge();
     this.createSpeedLines();
     this.showCharacterSelect();
@@ -503,62 +503,15 @@ class RunnerScene extends Phaser.Scene {
 
   makeCharacter(x: number, y: number, c: Character, scale = 1) {
     const group = this.add.container(x, y).setScale(scale).setData('runnerActor', true);
-    const body = this.add.graphics();
+    const shadow = this.add.ellipse(0, 48, 52, 13, 0x020617, 0.32);
+    const sprite = this.add.image(0, 0, `character-${c.id}`)
+      .setOrigin(0.5, 0.64)
+      .setScale(0.72);
 
-    body.fillStyle(c.color, 1);
-    body.fillRoundedRect(-22, -10, 44, 55, 18);
-    body.fillCircle(0, -31, 22);
-
-    // Face + character-specific silhouette details
-    body.fillStyle(0x111827, 1);
-    body.fillCircle(-8, -34, 3);
-    body.fillCircle(8, -34, 3);
-    body.lineStyle(2, 0x111827, 1);
-    body.lineBetween(-5, -24, 5, -24);
-    if (c.id === 'amirreza') {
-      body.fillStyle(0x1f2937, 1);
-      body.fillTriangle(-19, -45, -7, -58, -2, -44);
-      body.fillTriangle(-6, -48, 3, -60, 7, -43);
-    } else if (c.id === 'reza') {
-      body.fillStyle(0xf5d0a9, 1);
-      body.fillCircle(-13, -30, 3);
-      body.fillCircle(13, -30, 3);
-      body.fillStyle(0xf5d0a9, 1);
-      body.fillRect(-25, -13, 7, 34);
-      body.fillRect(18, -13, 7, 34);
-    } else if (c.id === 'taha') {
-      body.fillStyle(c.color, 1);
-      body.fillCircle(0, 3, 28);
-    } else if (c.id === 'mohna') {
-      body.lineStyle(5, c.accent, 1);
-      body.lineBetween(-14, -49, -20, -70);
-      body.lineBetween(14, -49, 20, -70);
-      body.strokeCircle(-20, -70, 6);
-      body.strokeCircle(20, -70, 6);
-    } else if (c.id === 'abolfazl') {
-      body.fillStyle(0xffffff, 1);
-      body.fillRect(-19, 1, 38, 22);
-      body.fillStyle(0x22c55e, 1);
-      body.fillCircle(0, 12, 7);
-    } else if (c.id === 'mohammad') {
-      body.lineStyle(5, c.accent, 1);
-      body.lineBetween(-22, 3, -40, -12);
-      body.lineBetween(22, 3, 40, -12);
-      body.fillCircle(-42, -14, 4);
-      body.fillCircle(42, -14, 4);
-    }
-
-    body.lineStyle(4, c.accent, 1);
-    body.strokeCircle(0, -31, 22);
-
-    body.fillStyle(c.accent, 1);
-    body.fillRoundedRect(-23, 32, 18, 9, 4);
-    body.fillRoundedRect(5, 32, 18, 9, 4);
-    body.lineStyle(3, 0x0f172a, 1);
-    body.lineBetween(-12, 30, -18, 47);
-    body.lineBetween(12, 30, 18, 47);
-
-    group.add(body);
+    group.add([shadow, sprite]);
+    group.setData('sprite', sprite);
+    group.setData('shadow', shadow);
+    group.setData('characterId', c.id);
     return group;
   }
 
