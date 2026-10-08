@@ -59,6 +59,9 @@ class RunnerScene extends Phaser.Scene {
   worldTime = 0;
   backgroundLayers: Phaser.GameObjects.Graphics[] = [];
   playerBob = 0;
+  fxTimer = 0;
+  speedLines: Phaser.GameObjects.Rectangle[] = [];
+  skyline!: Phaser.GameObjects.Graphics;
 
   secureRunId: string | null = null;
   gameOverInProgress = false;
@@ -177,6 +180,7 @@ class RunnerScene extends Phaser.Scene {
     this.groundY = this.scale.height * 0.78;
 
     this.drawWorld();
+    this.createSpeedLines();
     this.showCharacterSelect();
     void this.refreshMissions();
     void this.refreshCharacterProgress();
@@ -217,6 +221,7 @@ class RunnerScene extends Phaser.Scene {
     const w = this.scale.width;
     const h = this.scale.height;
     const g = this.add.graphics();
+    this.skyline = g;
 
     g.fillGradientStyle(0x050816, 0x0b1630, 0x17325b, 0x050816, 1);
     g.fillRect(0, 0, w, h);
@@ -251,6 +256,56 @@ class RunnerScene extends Phaser.Scene {
     g.fillRect(0, this.groundY - 4, w, 6);
     g.fillStyle(0x38bdf8, 0.12);
     g.fillRect(0, this.groundY + 6, w, 3);
+
+    // Perspective road markers and atmospheric glow.
+    g.lineStyle(2, 0x60a5fa, 0.16);
+    for (let i = 0; i < 9; i++) {
+      const t = i / 9;
+      const y = this.groundY + 18 + t * (h - this.groundY - 18);
+      const half = 24 + t * w * 0.42;
+      g.lineBetween(w / 2 - half, y, w / 2 + half, y);
+    }
+  }
+
+  createSpeedLines() {
+    this.speedLines = [];
+    for (let i = 0; i < 10; i++) {
+      const line = this.add.rectangle(0, 0, Phaser.Math.Between(18, 55), 2, 0x93c5fd, 0.18)
+        .setDepth(2)
+        .setVisible(false);
+      this.speedLines.push(line);
+    }
+  }
+
+  updateSpeedLines() {
+    const active = this.running && this.speed > 470;
+    this.speedLines.forEach((line, index) => {
+      if (!active) { line.setVisible(false); return; }
+      if (!line.visible || line.x < -80) {
+        line.x = this.scale.width + Phaser.Math.Between(0, 120);
+        line.y = this.groundY * (0.22 + (index % 7) * 0.07);
+        line.width = Phaser.Math.Between(18, 55) + (this.speed - 470) * 0.05;
+        line.alpha = 0.10 + Math.min(0.22, (this.speed - 470) / 1800);
+        line.setVisible(true);
+      }
+      line.x -= this.speed * 0.32 * (index % 3 === 0 ? 1.35 : 1) * Math.min(1.8, this.speed / 500);
+    });
+  }
+
+  emitPickupFx(x: number, y: number) {
+    for (let i = 0; i < 5; i++) {
+      const p = this.add.circle(x, y, Phaser.Math.Between(2, 4), 0xfbbf24, 0.95).setDepth(26);
+      this.tweens.add({
+        targets: p,
+        x: x + Phaser.Math.Between(-24, 24),
+        y: y + Phaser.Math.Between(-34, 10),
+        alpha: 0,
+        scale: 0.2,
+        duration: 260,
+        ease: 'Cubic.easeOut',
+        onComplete: () => p.destroy(),
+      });
+    }
   }
 
   showCharacterSelect() {
@@ -482,6 +537,8 @@ class RunnerScene extends Phaser.Scene {
     this.distance += this.speed * d / 10;
     this.worldTime += dt;
     this.speed = Math.min(780, this.speed + d * 7);
+    this.fxTimer += dt;
+    this.updateSpeedLines();
 
     this.ui.setText(`🏃 ${Math.floor(this.distance)} متر`);
     this.coinText.setText(`🪙 ${this.coins}`);
@@ -595,6 +652,7 @@ class RunnerScene extends Phaser.Scene {
 
   private collectCoin(coin: Phaser.GameObjects.Arc) {
     this.coins += 1;
+    this.emitPickupFx(coin.x, coin.y);
 
     const burst = this.add.text(coin.x, coin.y - 12, '+1', {
       fontFamily: 'Arial',
@@ -641,6 +699,8 @@ class RunnerScene extends Phaser.Scene {
     }
 
     obstacle.add(g);
+    obstacle.setScale(0.88);
+    this.tweens.add({ targets: obstacle, scale: 1, duration: 180, ease: 'Back.easeOut' });
     obstacle.x = this.laneX(lane) + this.scale.width / 2;
     obstacle.setDepth(8);
     this.obstacles.push(obstacle);
@@ -660,6 +720,7 @@ class RunnerScene extends Phaser.Scene {
       );
 
       coin.setStrokeStyle(4, 0xf59e0b);
+      this.tweens.add({ targets: coin, scale: 1.12, duration: 420, yoyo: true, repeat: -1, ease: 'Sine.easeInOut' });
       coin.setDepth(7);
       coin.setData('lane', lane);
       coin.y = this.groundY - 72 - (i % 2 === 0 ? 0 : 28);
