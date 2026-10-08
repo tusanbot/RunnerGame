@@ -9,10 +9,17 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
+    env:
+      VITE_SUPABASE_URL: ${{ vars.VITE_SUPABASE_URL }}
+      VITE_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.VITE_SUPABASE_PUBLISHABLE_KEY }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v7
         with:
           node-version: 22
       - run: npm install
+      - name: Verify Supabase configuration
+        run: |
+          test -n "$VITE_SUPABASE_URL" || (echo "Missing GitHub Actions variable: VITE_SUPABASE_URL" && exit 1)
+          test -n "$VITE_SUPABASE_PUBLISHABLE_KEY" || (echo "Missing GitHub Actions secret: VITE_SUPABASE_PUBLISHABLE_KEY" && exit 1)
       - run: npm run build
