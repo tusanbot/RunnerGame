@@ -33,13 +33,41 @@ Deno.serve(async (req) => {
     const runId = String(body.runId ?? '');
     const distance = Math.floor(Number(body.distance ?? 0));
     const collectedCoins = Math.floor(Number(body.collectedCoins ?? 0));
+    const characterId = String(body.characterId ?? 'amirreza');
 
-    if (!runId || !Number.isFinite(distance) || !Number.isFinite(collectedCoins)) {
+    if (!runId || !characterId || !Number.isFinite(distance) || !Number.isFinite(collectedCoins)) {
       return Response.json({ error: 'نتیجه بازی نامعتبر است.' }, { status: 400, headers: corsHeaders });
     }
     if (distance < 0 || collectedCoins < 0 || distance > MAX_DISTANCE || collectedCoins > MAX_COINS_PER_RUN) {
       return Response.json({ error: 'نتیجه بازی خارج از محدوده مجاز است.' }, { status: 400, headers: corsHeaders });
     }
+
+    const { data: characterState, error: characterError } = await admin
+      .from('runner_character_progress')
+      .select('unlocked')
+      .eq('user_id', userData.user.id)
+      .eq('character_id', characterId)
+      .maybeSingle();
+    if (characterError) throw characterError;
+    if (!characterState?.unlocked) {
+      return Response.json({ error: 'شخصیت انتخاب‌شده برای این حساب باز نیست.' }, { status: 400, headers: corsHeaders });
+    }
+    const { data: characterCatalog, error: catalogError } = await admin
+      .from('runner_characters')
+      .select('base_coin_multiplier')
+      .eq('id', characterId)
+      .eq('active', true)
+      .maybeSingle();
+    if (catalogError) throw catalogError;
+    const { data: characterLevels, error: levelsError } = await admin
+      .from('runner_character_progress')
+      .select('coin_level')
+      .eq('user_id', userData.user.id)
+      .eq('character_id', characterId)
+      .maybeSingle();
+    if (levelsError) throw levelsError;
+    const multiplier = Number(characterCatalog?.base_coin_multiplier ?? 1) + Number(characterLevels?.coin_level ?? 0) * 0.05;
+    const effectiveCollectedCoins = Math.min(MAX_COINS_PER_RUN, Math.floor(collectedCoins * multiplier));
 
     const { count, error: countError } = await admin
       .from('runner_reward_events')
@@ -56,7 +84,7 @@ Deno.serve(async (req) => {
       p_run_id: runId,
       p_user_id: userData.user.id,
       p_distance: distance,
-      p_collected_coins: collectedCoins,
+      p_collected_coins: effectiveCollectedCoins,
     });
 
     if (error) {
