@@ -644,13 +644,21 @@ class RunnerScene extends Phaser.Scene {
     const airborne = this.playerY > 2;
     const baseScale = state === 'slide' ? 0.52 : state === 'jump' ? 0.76 : state === 'hit' ? 0.82 : 0.72;
 
-    sprite.setScale(baseScale);
+    sprite.setScale(
+      state === 'slide' ? 0.72 : baseScale,
+      state === 'slide' ? 0.46 : baseScale,
+    );
+    sprite.y = state === 'slide' ? 13 : 0;
     sprite.rotation =
       state === 'hit'
         ? Math.sin(this.worldTime / 35) * 0.16
-        : state === 'run'
-          ? Math.sin(this.worldTime / 110) * 0.025
-          : 0;
+        : state === 'slide'
+          ? -0.16
+          : state === 'run'
+            ? Math.sin(this.worldTime / 110) * 0.025
+            : state === 'jump'
+              ? -0.05
+              : 0;
 
     if (shadow) {
       shadow.setScale(airborne ? 0.72 : state === 'slide' ? 1.05 : 1);
