@@ -38,6 +38,7 @@ type Obstacle = Phaser.GameObjects.Container & {
 class RunnerScene extends Phaser.Scene {
   selected = characters[0];
   running = false;
+  viewMode: 'menu' | 'character' | 'game' = 'menu';
   distance = 0;
   coins = 0;
   speed = 390;
@@ -130,7 +131,8 @@ class RunnerScene extends Phaser.Scene {
     );
     if (preferred) this.selected = preferred;
 
-    if (!this.running) this.showCharacterSelect();
+    if (this.viewMode === 'character') this.showCharacterSelect();
+    else if (this.viewMode === 'menu') this.showMainMenu();
     void this.refreshCharacterProgress();
   }
 
@@ -524,6 +526,7 @@ class RunnerScene extends Phaser.Scene {
   }
 
   showCharacterSelect() {
+    this.viewMode = 'character';
     this.running = false;
     this.pausedByUser = false;
     this.clearActors();
@@ -698,6 +701,7 @@ class RunnerScene extends Phaser.Scene {
   }
 
   startGame() {
+    this.viewMode = 'game';
     this.clearActors();
     this.pausedByUser = false;
     this.pauseOverlay?.destroy();
@@ -1501,6 +1505,7 @@ class RunnerScene extends Phaser.Scene {
   }
 
   showMainMenu() {
+    this.viewMode = 'menu';
     this.running = false;
     this.pausedByUser = false;
     this.gameOverInProgress = false;
