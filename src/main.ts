@@ -66,6 +66,8 @@ class RunnerScene extends Phaser.Scene {
   playerState: 'idle' | 'run' | 'jump' | 'slide' | 'hit' = 'idle';
   speedLines: Phaser.GameObjects.Rectangle[] = [];
   skyline!: Phaser.GameObjects.Graphics;
+  roadGlow!: Phaser.GameObjects.Graphics;
+  lastGrounded = true;
 
   secureRunId: string | null = null;
   gameOverInProgress = false;
@@ -204,6 +206,7 @@ class RunnerScene extends Phaser.Scene {
     this.groundY = this.scale.height * 0.78;
 
     this.drawWorld();
+    this.roadGlow = this.add.graphics().setDepth(3);
     this.stage = RUNNER_STAGES[0];
     this.stageAtmosphere = this.add.rectangle(0, 0, this.scale.width, this.scale.height, 0x000000, 0).setOrigin(0).setDepth(1);
     this.createStageBadge();
@@ -396,6 +399,83 @@ class RunnerScene extends Phaser.Scene {
       }
       line.x -= this.speed * 0.32 * (index % 3 === 0 ? 1.35 : 1) * Math.min(1.8, this.speed / 500);
     });
+  }
+
+  updateRoadGlow() {
+    if (!this.roadGlow) return;
+    const w = this.scale.width;
+    const h = this.scale.height;
+    this.roadGlow.clear();
+
+    const pulse = 0.06 + (Math.sin(this.worldTime / 240) + 1) * 0.025;
+    this.roadGlow.fillStyle(this.stage?.accent ?? 0x60a5fa, pulse);
+    this.roadGlow.fillTriangle(
+      w / 2, this.groundY,
+      w / 2 - w * 0.48, h,
+      w / 2 + w * 0.48, h,
+    );
+
+    if (this.running && this.speed > 600) {
+      this.roadGlow.lineStyle(3, this.stage?.accent ?? 0x60a5fa, 0.12);
+      for (let i = 0; i < 3; i++) {
+        const offset = Math.sin(this.worldTime / 180 + i * 2) * 18;
+        this.roadGlow.lineBetween(
+          w / 2 + offset,
+          this.groundY + 12,
+          w / 2 + offset * 7,
+          h,
+        );
+      }
+    }
+  }
+
+  feedback(kind: 'light' | 'medium' | 'heavy') {
+    const ms = kind === 'heavy' ? 45 : kind === 'medium' ? 24 : 12;
+    if ('vibrate' in navigator) {
+      try { navigator.vibrate(ms); } catch { /* unsupported */ }
+    }
+  }
+
+  emitLandingFx() {
+    const x = this.player.x;
+    const y = this.groundY - 4;
+    for (let i = 0; i < 7; i++) {
+      const dust = this.add.circle(x + Phaser.Math.Between(-24, 24), y, Phaser.Math.Between(2, 4), 0xcbd5e1, 0.32).setDepth(9);
+      this.tweens.add({
+        targets: dust,
+        x: dust.x + Phaser.Math.Between(-34, 34),
+        y: dust.y + Phaser.Math.Between(-8, 5),
+        alpha: 0,
+        scale: 0.15,
+        duration: 280,
+        onComplete: () => dust.destroy(),
+      });
+    }
+    this.feedback('light');
+  }
+
+  emitObstacleBreakFx(x: number, y: number) {
+    for (let i = 0; i < 9; i++) {
+      const piece = this.add.rectangle(x, y, Phaser.Math.Between(4, 8), Phaser.Math.Between(4, 10), 0xef4444, 0.95)
+        .setDepth(28)
+        .setRotation(Phaser.Math.FloatBetween(-0.5, 0.5));
+      this.tweens.add({
+        targets: piece,
+        x: x + Phaser.Math.Between(-42, 42),
+        y: y + Phaser.Math.Between(-48, 42),
+        angle: Phaser.Math.Between(-180, 180),
+        alpha: 0,
+        duration: Phaser.Math.Between(280, 420),
+        ease: 'Cubic.easeOut',
+        onComplete: () => piece.destroy(),
+      });
+    }
+    this.feedback('medium');
+  }
+
+  emitHitFx() {
+    this.cameras.main.shake(180, 0.008);
+    this.feedback('heavy');
   }
 
   emitShieldFx(x: number, y: number) {
@@ -701,6 +781,7 @@ class RunnerScene extends Phaser.Scene {
 
     this.fxTimer += dt;
     this.updateSpeedLines();
+    this.updateRoadGlow();
 
     this.ui.setText(`🏃 ${Math.floor(this.distance)} متر`);
 
@@ -732,6 +813,9 @@ class RunnerScene extends Phaser.Scene {
       this.playerY = 0;
       this.velocityY = 0;
     }
+    const groundedNow = this.playerY === 0;
+    if (groundedNow && !this.lastGrounded) this.emitLandingFx();
+    this.lastGrounded = groundedNow;
 
     this.player.y = this.groundY - 48 + this.playerY;
     this.updatePlayerAnimation();
@@ -774,6 +858,7 @@ class RunnerScene extends Phaser.Scene {
           this.resistanceReady = false;
           this.abilityActiveUntil = 0;
           this.emitAbilityFx('🧱 مقاومت!', obstacle.x, obstacle.y, 0x60a5fa);
+          this.emitObstacleBreakFx(obstacle.x, obstacle.y);
           obstacle.destroy();
           this.obstacles = this.obstacles.filter((x) => x !== obstacle);
           continue;
@@ -781,6 +866,7 @@ class RunnerScene extends Phaser.Scene {
         if (this.runEffects.shield) {
           this.runEffects.shield = false;
           this.emitShieldFx(obstacle.x, obstacle.y);
+          this.emitObstacleBreakFx(obstacle.x, obstacle.y);
           obstacle.destroy();
           this.obstacles = this.obstacles.filter((x) => x !== obstacle);
           continue;
@@ -863,6 +949,7 @@ class RunnerScene extends Phaser.Scene {
   private collectCoin(coin: Phaser.GameObjects.Arc) {
     this.coins += 1;
     this.emitPickupFx(coin.x, coin.y);
+    this.feedback('light');
 
     const burst = this.add.text(coin.x, coin.y - 12, '+1', {
       fontFamily: 'Arial',
@@ -997,6 +1084,7 @@ class RunnerScene extends Phaser.Scene {
 
     this.abilityCooldownUntil = this.time.now + 14000;
     this.abilityUses += 1;
+    this.feedback('medium');
 
     switch (this.selected.id) {
       case 'amirreza':
@@ -1028,6 +1116,7 @@ class RunnerScene extends Phaser.Scene {
         const target = targets[0];
         if (target) {
           this.emitAbilityFx('⚽ شوت!', target.x, target.y, 0x22c55e);
+          this.emitObstacleBreakFx(target.x, target.y);
           target.destroy();
           this.obstacles = this.obstacles.filter((x) => x !== target);
         }
@@ -1060,6 +1149,7 @@ class RunnerScene extends Phaser.Scene {
     if (!this.running || this.gameOverInProgress) return;
     if (this.playerY === 0) {
       this.velocityY = -this.jumpStrength * 2.1;
+      this.feedback('light');
     }
   }
 
@@ -1117,6 +1207,7 @@ class RunnerScene extends Phaser.Scene {
 
     this.gameOverInProgress = true;
     this.running = false;
+    this.emitHitFx();
     this.playerState = 'hit';
     if (this.player) {
       this.tweens.killTweensOf(this.player);
