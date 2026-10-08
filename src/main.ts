@@ -1104,7 +1104,7 @@ class RunnerScene extends Phaser.Scene {
     const g = this.add.graphics();
 
     if (kind === 'overhead') {
-      obstacle.y = this.groundY - 108;
+      obstacle.y = this.groundY - 82;
       // Overhead gate: two posts + glowing horizontal beam.
       g.fillStyle(0x334155, 1);
       g.fillRoundedRect(-48, -70, 10, 88, 5);
