@@ -41,7 +41,7 @@ create policy "runner rewards own select"
 
 revoke insert, update, delete on public.runner_reward_events from anon, authenticated;
 
-revoke update (coins, xp, best_distance) on public.runner_player_progress from anon, authenticated;
+revoke update on public.runner_player_progress from anon, authenticated;
 grant select, insert, update (display_name, active_character_id, unlocked_character_ids, inventory, completed_mission_ids)
   on public.runner_player_progress to authenticated;
 
