@@ -4,6 +4,7 @@ import { AuthUi } from './ui/authUi';
 import { loadLocalProgress, saveCloudProgress, saveLocalProgress, type PlayerProgress } from './services/playerProgress';
 import { finishSecureRun, startSecureRun } from './services/runnerRewards';
 import { claimMission, getMissionSnapshot, type MissionSnapshot } from './services/missions';
+import { ShopUi } from './ui/shopUi';
 
 type Character = { id:string; name:string; color:number; accent:number; ability:string; speed:number; jump:number; };
 const characters:Character[]=[
@@ -182,5 +183,12 @@ class RunnerScene extends Phaser.Scene{
   clearActors(){this.children.list.filter(o=>(o as any).getData?.('runnerActor')||o instanceof Phaser.GameObjects.Text).forEach(o=>{if(o!==this.children.list[0])o.destroy();});this.obstacles.forEach(o=>o.destroy());this.coinObjs.forEach(o=>o.destroy());this.obstacles=[];this.coinObjs=[];}
 }
 const game=new Phaser.Game({type:Phaser.AUTO,parent:'app',width:'100%',height:'100%',scale:{mode:Phaser.Scale.RESIZE,autoCenter:Phaser.Scale.CENTER_BOTH},backgroundColor:'#07101f',scene:RunnerScene,render:{antialias:true,roundPixels:false}});
-const authUi=new AuthUi((state)=>{const scene=game.scene.getScene('RunnerScene') as RunnerScene | undefined;if(scene && state.progress) scene.setProgress(state.progress);});
+let shopUi: ShopUi;
+const authUi=new AuthUi((state)=>{const scene=game.scene.getScene('RunnerScene') as RunnerScene | undefined;if(scene && state.progress) scene.setProgress(state.progress);
+  if(shopUi && state.progress) shopUi.setProgress(state.progress);
+});
+shopUi = new ShopUi(
+  () => (game.scene.getScene('RunnerScene') as RunnerScene).progress,
+  (progress) => { const scene = game.scene.getScene('RunnerScene') as RunnerScene; scene.setProgress(progress); scene.persistProgress(); }
+);
 window.addEventListener('beforeunload',()=>authUi.destroy());
