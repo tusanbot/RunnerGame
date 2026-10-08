@@ -525,10 +525,13 @@ class RunnerScene extends Phaser.Scene {
   }
 
   private coinHitsPlayer(coin: Phaser.GameObjects.Arc) {
+    const lane = Number(coin.getData('lane') ?? 1);
+    if (lane !== this.lane) return false;
+
     const dx = Math.abs(coin.x - this.player.x);
     const dy = Math.abs(coin.y - this.player.y);
 
-    return dx < 48 && dy < 65;
+    return dx < 52 && dy < 70;
   }
 
   private collectCoin(coin: Phaser.GameObjects.Arc) {
