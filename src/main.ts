@@ -60,6 +60,7 @@ class RunnerScene extends Phaser.Scene {
   backgroundLayers: Phaser.GameObjects.Graphics[] = [];
   playerBob = 0;
   fxTimer = 0;
+  playerState: 'idle' | 'run' | 'jump' | 'slide' | 'hit' = 'idle';
   speedLines: Phaser.GameObjects.Rectangle[] = [];
   skyline!: Phaser.GameObjects.Graphics;
 
@@ -464,6 +465,7 @@ class RunnerScene extends Phaser.Scene {
     this.playerY = 0;
     this.lastSpawn = 0;
     this.lastCoin = 0;
+    this.playerState = 'idle';
     this.obstacleCount = 0;
     this.slideUntil = 0;
     this.secureRunId = null;
@@ -554,6 +556,7 @@ class RunnerScene extends Phaser.Scene {
     }
 
     this.player.y = this.groundY - 48 + this.playerY;
+    this.updatePlayerAnimation();
     const runBob = this.playerY === 0 ? Math.sin(this.worldTime / 85) * 3 : 0;
     this.player.rotation = this.isSliding() ? -0.08 : Math.sin(this.worldTime / 140) * 0.025;
     this.player.y += runBob;
@@ -791,6 +794,11 @@ class RunnerScene extends Phaser.Scene {
 
     this.gameOverInProgress = true;
     this.running = false;
+    this.playerState = 'hit';
+    if (this.player) {
+      this.tweens.killTweensOf(this.player);
+      this.tweens.add({ targets: this.player, angle: 10, alpha: 0.55, duration: 90, yoyo: true, repeat: 2 });
+    }
 
     const finalDistance = Math.floor(this.distance);
     const collectedCoins = this.coins;
