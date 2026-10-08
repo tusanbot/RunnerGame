@@ -25,6 +25,7 @@ export class AuthUi {
   private close!: HTMLButtonElement;
   private account!: HTMLButtonElement;
   private mode: 'login' | 'signup' = 'login';
+  private recoveryMode = false;
   private session: Session | null = null;
   private stateCallback: (state: AuthState) => void;
   private unsubscribe = () => undefined;
@@ -75,7 +76,7 @@ export class AuthUi {
 
     this.modal.querySelector('form')!.addEventListener('submit', (event) => {
       event.preventDefault();
-      void this.submit();
+      void (this.recoveryMode ? this.changePassword() : this.submit());
     });
     this.secondary.addEventListener('click', () => this.toggleMode());
     this.reset.addEventListener('click', () => void this.resetPassword());
@@ -173,20 +174,17 @@ export class AuthUi {
   }
 
   private openRecovery() {
+    this.recoveryMode = true;
     this.title.textContent = 'تغییر رمز عبور';
     this.message.textContent = 'رمز عبور جدیدت را وارد کن.';
     this.modal.querySelector('form')!.classList.remove('hidden');
-    this.name.classList.add('hidden');
+    this.name.parentElement!.classList.add('hidden');
     this.email.parentElement!.classList.add('hidden');
     this.password.value = '';
     this.action.textContent = 'ذخیره رمز جدید';
     this.secondary.classList.add('hidden');
     this.reset.classList.add('hidden');
     this.modal.classList.remove('hidden');
-    this.modal.querySelector('form')!.onsubmit = (event) => {
-      event.preventDefault();
-      void this.changePassword();
-    };
   }
 
   private async changePassword() {
@@ -249,6 +247,7 @@ export class AuthUi {
   }
 
   private applyMode() {
+    this.recoveryMode = false;
     this.modal.querySelector('form')!.classList.remove('hidden');
     this.name.parentElement!.classList.toggle('hidden', this.mode !== 'signup');
     this.email.parentElement!.classList.remove('hidden');
