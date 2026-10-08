@@ -1,4 +1,5 @@
 import { supabase } from '../lib/supabase';
+import { loadLocalProgress, saveLocalProgress } from './playerProgress';
 
 export type CharacterProgress={
  characterId:string; unlocked:boolean; level:number; speedLevel:number; jumpLevel:number; coinLevel:number;
@@ -7,7 +8,7 @@ export type CharacterProgress={
 export type CharacterProgressSnapshot={characters:CharacterProgress[]};
 
 export async function getCharacterProgress():Promise<CharacterProgressSnapshot>{
- if(!supabase)return {characters:[]};
+ if(!supabase){ const p=loadLocalProgress(); return {characters:[{characterId:'amirreza',unlocked:true,level:1,speedLevel:0,jumpLevel:0,coinLevel:0,speed:8,jump:9,coinMultiplier:1,unlockCost:0},{characterId:'reza',unlocked:Boolean(p?.unlockedCharacterIds.includes('reza')),level:1,speedLevel:0,jumpLevel:0,coinLevel:0,speed:7,jump:8,coinMultiplier:1.05,unlockCost:150},{characterId:'taha',unlocked:Boolean(p?.unlockedCharacterIds.includes('taha')),level:1,speedLevel:0,jumpLevel:0,coinLevel:0,speed:6,jump:8,coinMultiplier:1.1,unlockCost:250},{characterId:'mohna',unlocked:Boolean(p?.unlockedCharacterIds.includes('mohna')),level:1,speedLevel:0,jumpLevel:0,coinLevel:0,speed:8,jump:11,coinMultiplier:1,unlockCost:400},{characterId:'abolfazl',unlocked:Boolean(p?.unlockedCharacterIds.includes('abolfazl')),level:1,speedLevel:0,jumpLevel:0,coinLevel:0,speed:9,jump:9,coinMultiplier:1.15,unlockCost:600},{characterId:'mohammad',unlocked:Boolean(p?.unlockedCharacterIds.includes('mohammad')),level:1,speedLevel:0,jumpLevel:0,coinLevel:0,speed:10,jump:8,coinMultiplier:1.2,unlockCost:900}]}; }
  const {data:user}=await supabase.auth.getUser();
  if(!user.user)return {characters:[]};
  const {data:catalog,error:ce}=await supabase.from('runner_characters').select('id,base_speed,base_jump,base_coin_multiplier,unlock_cost').eq('active',true).order('sort_order');
@@ -24,7 +25,7 @@ export async function getCharacterProgress():Promise<CharacterProgressSnapshot>{
 }
 
 export async function progressCharacter(characterId:string,action:'unlock'|'upgrade_speed'|'upgrade_jump'|'upgrade_coin'){
- if(!supabase)return null;
+ if(!supabase){ const p=loadLocalProgress(); const costs:Record<string,number>={reza:150,taha:250,mohna:400,abolfazl:600,mohammad:900}; if(!p)return null; if(action==='unlock'){const cost=costs[characterId];if(!cost||p.coins<cost||p.unlockedCharacterIds.includes(characterId))return null;const next={...p,coins:p.coins-cost,unlockedCharacterIds:[...p.unlockedCharacterIds,characterId],updatedAt:new Date().toISOString()};saveLocalProgress(next);return {unlocked:true,coins:next.coins};} const cost=action==='upgrade_coin'?75:50;if(p.coins<cost)return null;const next={...p,coins:p.coins-cost,updatedAt:new Date().toISOString()};saveLocalProgress(next);return {unlocked:true,coins:next.coins}; }
  const {data,error}=await supabase.functions.invoke('character-progress',{body:{characterId,action}});
  if(error||!data)return null;
  return data;
