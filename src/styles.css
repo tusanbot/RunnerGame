@@ -27,3 +27,16 @@ button:disabled{opacity:.6;cursor:wait}
 @media(max-width:520px){.runner-account-button{padding:9px 11px;font-size:12px}.runner-auth-modal{padding:24px 18px;border-radius:20px}}
 
 .runner-mission-panel{position:fixed;left:50%;bottom:max(14px,env(safe-area-inset-bottom));transform:translateX(-50%);z-index:900;width:min(520px,92vw);direction:rtl;padding:10px 14px;border:1px solid rgba(148,163,184,.2);border-radius:16px;background:rgba(15,23,42,.84);color:#e2e8f0;backdrop-filter:blur(10px);font:700 13px Arial,sans-serif;text-align:center;box-shadow:0 10px 35px rgba(0,0,0,.25)}
+
+.runner-shop-root{position:fixed;inset:0;z-index:1100;pointer-events:none;direction:rtl}
+.runner-shop-open{position:fixed;left:max(14px,env(safe-area-inset-left));top:max(14px,env(safe-area-inset-top));pointer-events:auto;border:1px solid rgba(167,139,250,.35);border-radius:14px;padding:10px 13px;background:rgba(15,23,42,.88);color:#fff;font:700 13px Arial,sans-serif;box-shadow:0 8px 28px rgba(0,0,0,.25)}
+.runner-shop-backdrop{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;padding:18px;background:rgba(2,6,23,.82);backdrop-filter:blur(8px);pointer-events:auto}
+.runner-shop-modal{width:min(760px,96vw);max-height:88vh;overflow:auto;border:1px solid rgba(148,163,184,.22);border-radius:24px;padding:20px;background:linear-gradient(180deg,#111c31,#0b1222);color:#fff;box-shadow:0 24px 80px rgba(0,0,0,.5)}
+.runner-shop-close{float:left;width:36px;height:36px;border:0;border-radius:10px;background:#1e293b;color:#fff;font-size:24px}
+.runner-shop-title{text-align:center;font-size:24px;font-weight:800;padding:4px}.runner-shop-balance{text-align:center;color:#fbbf24;font-weight:800;margin:8px 0 18px}
+.runner-shop-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+.runner-shop-card{border:1px solid rgba(148,163,184,.18);border-radius:18px;padding:15px;background:rgba(15,23,42,.72);text-align:center}
+.runner-shop-icon{font-size:40px}.runner-shop-name{font-size:18px;font-weight:800;margin:5px}.runner-shop-desc{min-height:38px;color:#cbd5e1;font-size:12px;line-height:1.7}.runner-shop-meta{display:flex;justify-content:space-between;color:#fbbf24;font-size:12px;margin:12px 0}
+.runner-shop-card button{width:100%;border:0;border-radius:11px;padding:10px;margin-top:6px;background:#7c3aed;color:#fff;font-weight:800}.runner-shop-card button.secondary{background:#1e293b}.runner-shop-card button:disabled{opacity:.45}
+.runner-shop-empty{text-align:center;padding:30px;color:#cbd5e1}
+@media(max-width:560px){.runner-shop-grid{grid-template-columns:1fr}.runner-shop-modal{padding:16px;border-radius:20px}}
