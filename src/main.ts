@@ -1366,7 +1366,8 @@ class RunnerScene extends Phaser.Scene {
           || object instanceof Phaser.GameObjects.Rectangle;
       })
       .forEach((o) => o.destroy());
-  }}
+  }
+}
 
 const game = new Phaser.Game({
   type: Phaser.AUTO,
