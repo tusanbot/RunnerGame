@@ -1,1 +1,27 @@
-*{box-sizing:border-box}html,body,#app{margin:0;width:100%;height:100%;overflow:hidden;background:#07101f;font-family:Arial,sans-serif}body{touch-action:none;user-select:none}canvas{display:block;touch-action:none}
+*{box-sizing:border-box}
+html,body,#app{margin:0;width:100%;height:100%;overflow:hidden;background:#07101f;font-family:Arial,sans-serif}
+body{touch-action:none;user-select:none}
+canvas{display:block;touch-action:none}
+
+.runner-auth-root{position:fixed;inset:0;z-index:1000;pointer-events:none}
+.runner-account-button{position:fixed;top:max(14px,env(safe-area-inset-top));right:max(14px,env(safe-area-inset-right));z-index:1001;pointer-events:auto;border:1px solid rgba(148,163,184,.28);border-radius:14px;padding:10px 14px;background:rgba(15,23,42,.86);color:#fff;font:700 13px Arial,sans-serif;box-shadow:0 8px 28px rgba(0,0,0,.25);backdrop-filter:blur(10px)}
+.runner-account-button.signed-in{border-color:rgba(34,197,94,.55)}
+.runner-auth-backdrop{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;padding:20px;background:rgba(2,6,23,.78);backdrop-filter:blur(8px);pointer-events:auto}
+.runner-auth-modal{width:min(430px,94vw);max-height:90vh;overflow:auto;border:1px solid rgba(148,163,184,.22);border-radius:24px;padding:28px;background:linear-gradient(180deg,#111c31,#0b1222);color:#fff;box-shadow:0 24px 80px rgba(0,0,0,.45);position:relative;direction:rtl}
+.runner-auth-brand{text-align:center;font-size:42px;margin-bottom:4px}
+.runner-auth-modal h2{margin:0 0 12px;text-align:center;font-size:23px}
+.runner-auth-message{min-height:24px;margin-bottom:14px;text-align:center;color:#cbd5e1;font-size:13px;line-height:1.7}
+.runner-auth-message.error{color:#fca5a5}
+.runner-auth-modal form{display:flex;flex-direction:column;gap:12px}
+.runner-auth-modal label{display:flex;flex-direction:column;gap:7px;color:#cbd5e1;font-size:13px;font-weight:700}
+.runner-auth-modal input{width:100%;border:1px solid #334155;border-radius:13px;padding:13px 14px;background:#07101f;color:#fff;outline:none;font:15px Arial,sans-serif}
+.runner-auth-modal input:focus{border-color:#8b5cf6;box-shadow:0 0 0 3px rgba(139,92,246,.15)}
+.runner-auth-action,.runner-auth-secondary,.runner-auth-reset,.runner-auth-logout{width:100%;border:0;border-radius:13px;padding:13px 14px;font:700 14px Arial,sans-serif;cursor:pointer}
+.runner-auth-action{margin-top:4px;background:#7c3aed;color:#fff}
+.runner-auth-secondary{margin-top:10px;background:#1e293b;color:#e2e8f0}
+.runner-auth-reset{margin-top:8px;background:transparent;color:#a78bfa}
+.runner-auth-logout{margin-top:14px;background:#7f1d1d;color:#fff}
+.runner-auth-close{position:absolute;left:14px;top:12px;width:34px;height:34px;border:0;border-radius:10px;background:#1e293b;color:#fff;font-size:23px;cursor:pointer}
+.hidden{display:none!important}
+button:disabled{opacity:.6;cursor:wait}
+@media(max-width:520px){.runner-account-button{padding:9px 11px;font-size:12px}.runner-auth-modal{padding:24px 18px;border-radius:20px}}
