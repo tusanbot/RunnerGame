@@ -158,7 +158,8 @@ class RunnerScene extends Phaser.Scene {
     const snapshot = await getCharacterProgress();
     this.characterProgress = snapshot.characters;
 
-    if (!this.running) this.showCharacterSelect();
+    if (this.viewMode === 'character') this.showCharacterSelect();
+    else if (this.viewMode === 'menu') this.showMainMenu();
   }
 
   selectedCharacterProgress() {
