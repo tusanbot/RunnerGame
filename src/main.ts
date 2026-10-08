@@ -187,6 +187,12 @@ class RunnerScene extends Phaser.Scene {
       : '🎯 مأموریت‌های روزانه';
   }
 
+  preload() {
+    for (const character of characters) {
+      this.load.svg(`character-${character.id}`, `assets/characters/${character.id}.svg`, { width: 128, height: 160 });
+    }
+  }
+
   create() {
     this.cameras.main.setBackgroundColor('#07101f');
     this.groundY = this.scale.height * 0.78;
@@ -498,6 +504,30 @@ class RunnerScene extends Phaser.Scene {
           color: '#c4b5fd',
         })
         .setOrigin(0.5);
+    }
+  }
+
+  updatePlayerAnimation() {
+    if (!this.player) return;
+    const sprite = this.player.getData('sprite') as Phaser.GameObjects.Image | undefined;
+    const shadow = this.player.getData('shadow') as Phaser.GameObjects.Ellipse | undefined;
+    if (!sprite) return;
+
+    const state = this.playerState;
+    const airborne = this.playerY > 2;
+    const baseScale = state === 'slide' ? 0.52 : state === 'jump' ? 0.76 : state === 'hit' ? 0.82 : 0.72;
+
+    sprite.setScale(baseScale);
+    sprite.rotation =
+      state === 'hit'
+        ? Math.sin(this.worldTime / 35) * 0.16
+        : state === 'run'
+          ? Math.sin(this.worldTime / 110) * 0.025
+          : 0;
+
+    if (shadow) {
+      shadow.setScale(airborne ? 0.72 : state === 'slide' ? 1.05 : 1);
+      shadow.setAlpha(airborne ? 0.18 : 0.32);
     }
   }
 
