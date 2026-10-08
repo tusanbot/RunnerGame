@@ -1,5 +1,13 @@
 import { supabase } from '../lib/supabase';
 
+export type RunnerEffects = {
+  shield: boolean;
+  magnet: boolean;
+  turbo: boolean;
+  coinBoost: boolean;
+  coinMultiplier: number;
+};
+
 export type RunReward = {
   awardedCoins: number;
   awardedXp: number;
@@ -8,14 +16,25 @@ export type RunReward = {
   bestDistance: number;
 };
 
-export async function startSecureRun(): Promise<string | null> {
+export async function startSecureRun(effects: Partial<RunnerEffects> = {}): Promise<{ runId: string; effects: RunnerEffects } | null> {
   if (!supabase) return null;
-  const { data, error } = await supabase.functions.invoke('start-run', { body: {} });
+  const { data, error } = await supabase.functions.invoke('start-run', {
+    body: { effects },
+  });
   if (error || !data?.runId) {
     console.warn('[RunnerGame] Secure run start failed:', error?.message);
     return null;
   }
-  return String(data.runId);
+  return {
+    runId: String(data.runId),
+    effects: {
+      shield: Boolean(data.effects?.shield),
+      magnet: Boolean(data.effects?.magnet),
+      turbo: Boolean(data.effects?.turbo),
+      coinBoost: Boolean(data.effects?.coinBoost),
+      coinMultiplier: Number(data.effects?.coinMultiplier ?? 1),
+    },
+  };
 }
 
 export async function finishSecureRun(
