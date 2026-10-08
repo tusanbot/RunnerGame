@@ -961,8 +961,11 @@ class RunnerScene extends Phaser.Scene {
 
     for (const coin of [...this.coinObjs]) {
       coin.x -= this.speed * d;
+      const coinCore = coin.getData('coinCore') as Phaser.GameObjects.Arc | undefined;
+      if (coinCore) { coinCore.x = coin.x; coinCore.y = coin.y; }
 
       if (coin.x < -50) {
+        coinCore?.destroy();
         coin.destroy();
         this.coinObjs = this.coinObjs.filter((x) => x !== coin);
         continue;
@@ -1055,6 +1058,8 @@ class RunnerScene extends Phaser.Scene {
       onComplete: () => burst.destroy(),
     });
 
+    const coinCore = coin.getData('coinCore') as Phaser.GameObjects.Arc | undefined;
+    coinCore?.destroy();
     coin.destroy();
     this.coinObjs = this.coinObjs.filter((x) => x !== coin);
   }
@@ -1093,17 +1098,32 @@ class RunnerScene extends Phaser.Scene {
     const g = this.add.graphics();
 
     if (kind === 'overhead') {
-      obstacle.y = this.groundY - 105;
+      obstacle.y = this.groundY - 108;
+      // Overhead gate: two posts + glowing horizontal beam.
+      g.fillStyle(0x334155, 1);
+      g.fillRoundedRect(-48, -70, 10, 88, 5);
+      g.fillRoundedRect(38, -70, 10, 88, 5);
       g.fillStyle(0xf97316, 1);
-      g.fillRoundedRect(-36, -18, 72, 36, 9);
-      g.fillStyle(0xffedd5, 1);
-      g.fillRect(-22, -5, 44, 5);
+      g.fillRoundedRect(-42, -18, 84, 28, 8);
+      g.fillStyle(0xfef3c7, 1);
+      for (let i = -30; i <= 30; i += 20) g.fillRect(i, -11, 10, 5);
+      g.lineStyle(3, 0xfb923c, 0.55);
+      g.strokeRoundedRect(-45, -21, 90, 34, 9);
     } else {
       obstacle.y = this.groundY - 42;
+      // Ground barrier: layered construction block with warning stripes.
+      g.fillStyle(0x7f1d1d, 1);
+      g.fillRoundedRect(-31, -45, 62, 90, 11);
       g.fillStyle(0xef4444, 1);
-      g.fillRoundedRect(-28, -42, 56, 84, 10);
-      g.fillStyle(0xfca5a5, 1);
-      g.fillRect(-20, -31, 40, 8);
+      g.fillRoundedRect(-27, -41, 54, 82, 9);
+      g.fillStyle(0xfef3c7, 1);
+      for (let i = -23; i <= 15; i += 19) g.fillRect(i, -28, 10, 7);
+      g.fillStyle(0x991b1b, 1);
+      g.fillRect(-23, -12, 46, 8);
+      g.fillStyle(0xfca5a5, 0.8);
+      g.fillRect(-18, 4, 36, 5);
+      g.lineStyle(3, 0xff8a8a, 0.65);
+      g.strokeRoundedRect(-30, -44, 60, 88, 11);
     }
 
     obstacle.add(g);
@@ -1139,7 +1159,11 @@ class RunnerScene extends Phaser.Scene {
       );
 
       coin.setStrokeStyle(4, 0xf59e0b);
+      const coinCore = this.add.circle(coin.x, coin.y, 7, 0xfff7b2, 0.95).setDepth(8);
+      coinCore.setData('coinCore', coin);
+      coin.setData('coinCore', coinCore);
       this.tweens.add({ targets: coin, scale: 1.12, duration: 420, yoyo: true, repeat: -1, ease: 'Sine.easeInOut' });
+      this.tweens.add({ targets: coinCore, scale: 0.75, alpha: 0.45, duration: 420, yoyo: true, repeat: -1, ease: 'Sine.easeInOut' });
       coin.setDepth(7);
       coin.setData('lane', laneForCoin);
       coin.y = this.groundY - height;
