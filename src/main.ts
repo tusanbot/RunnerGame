@@ -682,6 +682,7 @@ class RunnerScene extends Phaser.Scene {
 
   startGame() {
     this.clearActors();
+    this.createNavigation('game');
 
     this.distance = 0;
     this.stage = RUNNER_STAGES[0];
@@ -869,6 +870,9 @@ class RunnerScene extends Phaser.Scene {
     this.lastGrounded = groundedNow;
 
     this.player.y = this.groundY - 48 + this.playerY;
+    if (this.playerState !== 'hit') {
+      this.playerState = this.playerY > 2 ? 'jump' : this.isSliding() ? 'slide' : 'run';
+    }
     this.updatePlayerAnimation();
     const runBob = this.playerY === 0 ? Math.sin(this.worldTime / 85) * 3 : 0;
     this.player.rotation = this.isSliding() ? -0.08 : Math.sin(this.worldTime / 140) * 0.025;
@@ -1325,7 +1329,7 @@ class RunnerScene extends Phaser.Scene {
     const w = this.scale.width;
     const h = this.scale.height;
 
-    this.add.rectangle(w / 2, h / 2, w, h, 0x020617, 0.78).setDepth(30);
+    this.add.rectangle(w / 2, h / 2, w, h, 0x020617, 0.78).setDepth(30).setData('runnerActor', true);
 
     this.add
       .text(w / 2, h / 2 - 80, 'برخورد کردی!', {
@@ -1335,7 +1339,8 @@ class RunnerScene extends Phaser.Scene {
         color: '#fff',
       })
       .setOrigin(0.5)
-      .setDepth(31);
+      .setDepth(31)
+      .setData('runnerActor', true);
 
     const rewardText = onlineReward
       ? `🏃 ${finalDistance} متر   🪙 +${awardedCoins}   ✨ +${awardedXp} XP`
@@ -1350,12 +1355,14 @@ class RunnerScene extends Phaser.Scene {
         wordWrap: { width: w - 40 },
       })
       .setOrigin(0.5)
-      .setDepth(31);
+      .setDepth(31)
+      .setData('runnerActor', true);
 
     const b = this.add
       .rectangle(w / 2, h / 2 + 55, 210, 58, 0x7c3aed)
       .setInteractive({ useHandCursor: true })
-      .setDepth(31);
+      .setDepth(31)
+      .setData('runnerActor', true);
 
     this.add
       .text(w / 2, h / 2 + 55, 'دوباره بازی کن', {
@@ -1365,7 +1372,8 @@ class RunnerScene extends Phaser.Scene {
         color: '#fff',
       })
       .setOrigin(0.5)
-      .setDepth(32);
+      .setDepth(32)
+      .setData('runnerActor', true);
 
     b.on('pointerdown', () => this.startGame());
   }
