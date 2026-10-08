@@ -31,6 +31,9 @@ for select to anon,authenticated using(active=true);
 revoke insert,update,delete on public.runner_characters from anon,authenticated;
 grant select on public.runner_characters to anon,authenticated;
 
+alter table public.runner_player_progress alter column unlocked_character_ids set default '["amirreza"]'::jsonb;
+alter table public.runner_player_progress alter column inventory set default '{}'::jsonb;
+
 create table if not exists public.runner_character_progress (
  user_id uuid not null references auth.users(id) on delete cascade,
  character_id text not null references public.runner_characters(id) on delete cascade,
