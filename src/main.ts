@@ -323,13 +323,13 @@ class RunnerScene extends Phaser.Scene {
       .setStrokeStyle(1, 0x334155, 0.9)
       .setData('persistentUI', true);
     const title = this.add.text(16, 8, '', {
-      fontFamily: 'Arial',
+      fontFamily: 'Tahoma',
       fontSize: '15px',
       fontStyle: 'bold',
       color: '#fff',
     }).setData('persistentUI', true);
     const subtitle = this.add.text(16, 28, '', {
-      fontFamily: 'Arial',
+      fontFamily: 'Tahoma',
       fontSize: '10px',
       color: '#cbd5e1',
     }).setData('persistentUI', true);
@@ -371,13 +371,13 @@ class RunnerScene extends Phaser.Scene {
       .setOrigin(0.5)
       .setStrokeStyle(2, stage.accent, 0.85);
     const title = this.add.text(0, -18, `مرحله ${stage.id}: ${stage.name}`, {
-      fontFamily: 'Arial',
+      fontFamily: 'Tahoma',
       fontSize: '22px',
       fontStyle: 'bold',
       color: '#fff',
     }).setOrigin(0.5);
     const subtitle = this.add.text(0, 18, stage.subtitle, {
-      fontFamily: 'Arial',
+      fontFamily: 'Tahoma',
       fontSize: '13px',
       color: '#cbd5e1',
     }).setOrigin(0.5);
@@ -670,7 +670,7 @@ class RunnerScene extends Phaser.Scene {
       ease: 'Cubic.easeOut',
       onComplete: () => ring.destroy(),
     });
-    const label = this.add.text(x, y - 38, '🛡️ نجات!', { fontFamily: 'Arial', fontSize: '16px', fontStyle: 'bold', color: '#67e8f9' }).setOrigin(0.5).setDepth(28);
+    const label = this.add.text(x, y - 38, '🛡️ نجات!', { fontFamily: 'Tahoma', fontSize: '16px', fontStyle: 'bold', color: '#67e8f9' }).setOrigin(0.5).setDepth(28);
     this.tweens.add({ targets: label, y: label.y - 25, alpha: 0, duration: 500, onComplete: () => label.destroy() });
   }
 
@@ -715,7 +715,7 @@ class RunnerScene extends Phaser.Scene {
     });
 
     const title = this.add.text(w / 2, compact ? 54 : 48, 'RUNNER LEGENDS', {
-      fontFamily: 'Arial',
+      fontFamily: 'Tahoma',
       fontSize: compact ? '26px' : '32px',
       fontStyle: 'bold',
       color: '#ffffff',
@@ -724,7 +724,7 @@ class RunnerScene extends Phaser.Scene {
     }).setOrigin(0.5).setData('runnerActor', true);
 
     this.add.text(w / 2, compact ? 82 : 84, 'قهرمانت را انتخاب کن', {
-      fontFamily: 'Arial',
+      fontFamily: 'Tahoma',
       fontSize: compact ? '15px' : '18px',
       color: '#c4b5fd',
       fontStyle: 'bold',
@@ -758,7 +758,7 @@ class RunnerScene extends Phaser.Scene {
         .setData('runnerActor', true);
 
       this.add.text(x, y - cardH / 2 + 25, character.name, {
-        fontFamily: 'Arial',
+        fontFamily: 'Tahoma',
         fontSize: compact ? '17px' : '19px',
         fontStyle: 'bold',
         color: unlocked ? '#ffffff' : '#64748b',
@@ -768,7 +768,7 @@ class RunnerScene extends Phaser.Scene {
       hero.setData('runnerActor', true);
 
       const stat = this.add.text(x, y + cardH / 2 - 31, unlocked ? `⚡ ${character.ability}` : `🔒 نیاز به ${unlockCost.toLocaleString('fa-IR')} سکه`, {
-        fontFamily: 'Arial',
+        fontFamily: 'Tahoma',
         fontSize: compact ? '11px' : '12px',
         fontStyle: 'bold',
         color: unlocked ? '#e2e8f0' : '#64748b',
@@ -780,7 +780,7 @@ class RunnerScene extends Phaser.Scene {
 
       if (!unlocked) {
         this.add.text(x, y + 4, `🔒\n${unlockCost.toLocaleString('fa-IR')} 🪙`, {
-          fontFamily: 'Arial',
+          fontFamily: 'Tahoma',
           fontSize: '19px',
         }).setOrigin(0.5).setDepth(6).setData('runnerActor', true);
         card.setAlpha(0.78);
@@ -806,7 +806,7 @@ class RunnerScene extends Phaser.Scene {
 
     this.add.text(w / 2, h - (compact ? 24 : 30),
       `🪙 ${this.progress.coins.toLocaleString('fa-IR')} سکه  •  برای شروع یک قهرمان را انتخاب کن`, {
-        fontFamily: 'Arial',
+        fontFamily: 'Tahoma',
         fontSize: compact ? '12px' : '14px',
         color: '#94a3b8',
         fontStyle: 'bold',
@@ -930,7 +930,7 @@ class RunnerScene extends Phaser.Scene {
 
     this.ui = this.add
       .text(22, 20, '', {
-        fontFamily: 'Arial',
+        fontFamily: 'Tahoma',
         fontSize: '19px',
         fontStyle: 'bold',
         color: '#fff',
@@ -939,7 +939,7 @@ class RunnerScene extends Phaser.Scene {
 
     this.coinText = this.add
       .text(w - 22, 20, '🪙 0', {
-        fontFamily: 'Arial',
+        fontFamily: 'Tahoma',
         fontSize: '19px',
         fontStyle: 'bold',
         color: '#fbbf24',
@@ -949,7 +949,7 @@ class RunnerScene extends Phaser.Scene {
 
     this.missionText = this.add
       .text(w / 2, 54, this.missionSummary(), {
-        fontFamily: 'Arial',
+        fontFamily: 'Tahoma',
         fontSize: '14px',
         color: '#cbd5e1',
       })
@@ -960,7 +960,7 @@ class RunnerScene extends Phaser.Scene {
     this.missionText.on('pointerdown', () => void this.claimReadyMission());
 
     this.effectsText = this.add
-      .text(w / 2, 104, '', { fontFamily: 'Arial', fontSize: '12px', color: '#fbbf24' })
+      .text(w / 2, 104, '', { fontFamily: 'Tahoma', fontSize: '12px', color: '#fbbf24' })
       .setOrigin(0.5)
       .setDepth(20);
 
@@ -973,7 +973,7 @@ class RunnerScene extends Phaser.Scene {
 
     this.abilityButtonText = this.add
       .text(w - 82, this.scale.height - 72, '', {
-        fontFamily: 'Arial',
+        fontFamily: 'Tahoma',
         fontSize: '14px',
         fontStyle: 'bold',
         color: '#fff',
@@ -988,7 +988,7 @@ class RunnerScene extends Phaser.Scene {
 
     this.add
       .text(w / 2, 82, '← → حرکت  •  ↑ پرش  •  ↓ سر خوردن  •  P مکث', {
-        fontFamily: 'Arial',
+        fontFamily: 'Tahoma',
         fontSize: '12px',
         color: '#64748b',
       })
@@ -1229,7 +1229,7 @@ class RunnerScene extends Phaser.Scene {
     this.feedback('light');
 
     const burst = this.add.text(coin.x, coin.y - 12, '+1', {
-      fontFamily: 'Arial',
+      fontFamily: 'Tahoma',
       fontSize: '16px',
       fontStyle: 'bold',
       color: '#fbbf24',
@@ -1403,7 +1403,7 @@ class RunnerScene extends Phaser.Scene {
     });
 
     const text = this.add.text(x, y - 42, label, {
-      fontFamily: 'Arial',
+      fontFamily: 'Tahoma',
       fontSize: '17px',
       fontStyle: 'bold',
       color: '#fff',
@@ -1539,14 +1539,14 @@ class RunnerScene extends Phaser.Scene {
       const overlay = this.add.container(this.scale.width / 2, this.scale.height / 2).setName('pause-overlay').setDepth(100);
       const panel = this.add.rectangle(0, 0, 280, 150, 0x020617, 0.94).setStrokeStyle(2, 0x64748b, 0.9);
       const title = this.add.text(0, -42, '⏸ بازی متوقف شد', {
-        fontFamily: 'Arial',
+        fontFamily: 'Tahoma',
         fontSize: '24px',
         fontStyle: 'bold',
         color: '#fff',
       }).setOrigin(0.5);
       const resume = this.add.rectangle(0, 28, 190, 48, 0x7c3aed).setInteractive({ useHandCursor: true });
       const resumeText = this.add.text(0, 28, '▶ ادامه بازی', {
-        fontFamily: 'Arial',
+        fontFamily: 'Tahoma',
         fontSize: '16px',
         fontStyle: 'bold',
         color: '#fff',
@@ -1645,7 +1645,7 @@ class RunnerScene extends Phaser.Scene {
 
     this.add
       .text(w / 2, h / 2 - 80, 'برخورد کردی!', {
-        fontFamily: 'Arial',
+        fontFamily: 'Tahoma',
         fontSize: '34px',
         fontStyle: 'bold',
         color: '#fff',
@@ -1660,7 +1660,7 @@ class RunnerScene extends Phaser.Scene {
 
     this.add
       .text(w / 2, h / 2 - 25, rewardText, {
-        fontFamily: 'Arial',
+        fontFamily: 'Tahoma',
         fontSize: '18px',
         color: '#fbbf24',
         align: 'center',
@@ -1678,7 +1678,7 @@ class RunnerScene extends Phaser.Scene {
 
     this.add
       .text(w / 2, h / 2 + 55, 'دوباره بازی کن', {
-        fontFamily: 'Arial',
+        fontFamily: 'Tahoma',
         fontSize: '18px',
         fontStyle: 'bold',
         color: '#fff',
@@ -1703,7 +1703,7 @@ class RunnerScene extends Phaser.Scene {
         .setDepth(60)
         .setData('runnerActor', true);
       const text = this.add.text(x, y, label, {
-        fontFamily: 'Arial', fontSize: '14px', fontStyle: 'bold', color: '#fff',
+        fontFamily: 'Tahoma', fontSize: '14px', fontStyle: 'bold', color: '#fff',
       }).setOrigin(0.5).setDepth(61).setData('runnerActor', true);
       panel.on('pointerover', () => panel.setScale(1.04));
       panel.on('pointerout', () => panel.setScale(1));
@@ -1738,11 +1738,11 @@ class RunnerScene extends Phaser.Scene {
     const overlay = this.add.rectangle(w / 2, h / 2, w, h, 0x020617, 0.88)
       .setDepth(50).setData('runnerActor', true);
     const title = this.add.text(w / 2, h * 0.20, 'RUNNER LEGENDS', {
-      fontFamily: 'Arial', fontSize: compact ? '30px' : '38px', fontStyle: 'bold', color: '#fff',
+      fontFamily: 'Tahoma', fontSize: compact ? '30px' : '38px', fontStyle: 'bold', color: '#fff',
       stroke: '#020617', strokeThickness: 7,
     }).setOrigin(0.5).setDepth(51).setData('runnerActor', true);
     const subtitle = this.add.text(w / 2, h * 0.27, 'دونده‌ی خودت را بساز و رکورد بزن', {
-      fontFamily: 'Arial', fontSize: '16px', color: '#c4b5fd', fontStyle: 'bold',
+      fontFamily: 'Tahoma', fontSize: '16px', color: '#c4b5fd', fontStyle: 'bold',
     }).setOrigin(0.5).setDepth(51).setData('runnerActor', true);
 
     const heroHalo = this.add.circle(w / 2, h * 0.33, compact ? 58 : 72, this.selected.accent, 0.10).setDepth(51).setData('runnerActor', true);
@@ -1769,7 +1769,7 @@ class RunnerScene extends Phaser.Scene {
       const y = h * 0.47 + row * (compact ? 52 : 55);
       const b = this.add.rectangle(x, y, buttonWidth, 48, color, 0.94)
         .setStrokeStyle(1, 0xffffff, 0.24).setInteractive({ useHandCursor: true }).setDepth(51).setData('runnerActor', true);
-      const t = this.add.text(x, y, label, { fontFamily: 'Arial', fontSize: '16px', fontStyle: 'bold', color: '#fff' })
+      const t = this.add.text(x, y, label, { fontFamily: 'Tahoma', fontSize: '16px', fontStyle: 'bold', color: '#fff' })
         .setOrigin(0.5).setDepth(52).setData('runnerActor', true);
       b.on('pointerover', () => b.setScale(1.035));
       b.on('pointerout', () => b.setScale(1));
@@ -1778,7 +1778,7 @@ class RunnerScene extends Phaser.Scene {
     });
 
     this.add.text(w / 2, h - 48, `🪙 ${this.progress.coins.toLocaleString('fa-IR')} سکه  •  ${this.progress.displayName}`, {
-      fontFamily: 'Arial', fontSize: '13px', color: '#94a3b8', fontStyle: 'bold',
+      fontFamily: 'Tahoma', fontSize: '13px', color: '#94a3b8', fontStyle: 'bold',
     }).setOrigin(0.5).setDepth(51).setData('runnerActor', true);
   }
 
