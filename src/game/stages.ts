@@ -9,6 +9,8 @@ export type RunnerStage = {
   maxSpeed: number;
   spawnMinMs: number;
   spawnMaxMs: number;
+  minGapPx: number;
+  reactionMs: number;
   obstacleDensity: number;
   doubleObstacleChance: number;
   overheadChance: number;
@@ -25,8 +27,10 @@ export const RUNNER_STAGES: RunnerStage[] = [
     startDistance: 0,
     endDistance: 500,
     maxSpeed: 560,
-    spawnMinMs: 620,
-    spawnMaxMs: 900,
+    spawnMinMs: 900,
+    spawnMaxMs: 1120,
+    minGapPx: 390,
+    reactionMs: 1050,
     obstacleDensity: 0.82,
     doubleObstacleChance: 0.04,
     overheadChance: 0.06,
@@ -41,8 +45,10 @@ export const RUNNER_STAGES: RunnerStage[] = [
     startDistance: 500,
     endDistance: 1500,
     maxSpeed: 650,
-    spawnMinMs: 520,
-    spawnMaxMs: 780,
+    spawnMinMs: 820,
+    spawnMaxMs: 1020,
+    minGapPx: 440,
+    reactionMs: 920,
     obstacleDensity: 0.92,
     doubleObstacleChance: 0.18,
     overheadChance: 0.18,
@@ -57,8 +63,10 @@ export const RUNNER_STAGES: RunnerStage[] = [
     startDistance: 1500,
     endDistance: 3000,
     maxSpeed: 730,
-    spawnMinMs: 460,
-    spawnMaxMs: 690,
+    spawnMinMs: 760,
+    spawnMaxMs: 940,
+    minGapPx: 480,
+    reactionMs: 860,
     obstacleDensity: 1,
     doubleObstacleChance: 0.30,
     overheadChance: 0.28,
@@ -73,8 +81,10 @@ export const RUNNER_STAGES: RunnerStage[] = [
     startDistance: 3000,
     endDistance: null,
     maxSpeed: 820,
-    spawnMinMs: 390,
-    spawnMaxMs: 610,
+    spawnMinMs: 700,
+    spawnMaxMs: 900,
+    minGapPx: 520,
+    reactionMs: 800,
     obstacleDensity: 1,
     doubleObstacleChance: 0.42,
     overheadChance: 0.34,
