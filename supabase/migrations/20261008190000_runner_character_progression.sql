@@ -127,3 +127,6 @@ end; $$;
 
 revoke all on function public.progress_runner_character(uuid,text,text) from public,anon,authenticated;
 grant execute on function public.progress_runner_character(uuid,text,text) to service_role;
+
+revoke update (unlocked_character_ids, inventory) on public.runner_player_progress from authenticated;
+revoke insert (unlocked_character_ids, inventory) on public.runner_player_progress from authenticated;
