@@ -56,6 +56,9 @@ class RunnerScene extends Phaser.Scene {
   lastSpawn = 0;
   lastCoin = 0;
   obstacleCount = 0;
+  worldTime = 0;
+  backgroundLayers: Phaser.GameObjects.Graphics[] = [];
+  playerBob = 0;
 
   secureRunId: string | null = null;
   gameOverInProgress = false;
@@ -215,7 +218,7 @@ class RunnerScene extends Phaser.Scene {
     const h = this.scale.height;
     const g = this.add.graphics();
 
-    g.fillGradientStyle(0x07101f, 0x102a43, 0x1a365d, 0x07101f, 1);
+    g.fillGradientStyle(0x050816, 0x0b1630, 0x17325b, 0x050816, 1);
     g.fillRect(0, 0, w, h);
 
     g.fillStyle(0x101827, 1);
@@ -231,12 +234,23 @@ class RunnerScene extends Phaser.Scene {
       g.lineBetween(0, y, w, y);
     }
 
-    for (let i = 0; i < 12; i++) {
+    for (let i = 0; i < 18; i++) {
       const x = (i * 137) % w;
-      const bh = 80 + (i % 5) * 32;
-      g.fillStyle(i % 2 ? 0x17233a : 0x1d2b45, 1);
+      const bh = 70 + (i % 6) * 30;
+      g.fillStyle(i % 2 ? 0x111b31 : 0x17243d, 1);
       g.fillRect(x, this.groundY - bh, 75, bh);
+      g.fillStyle(0x38bdf8, 0.10);
+      for (let wy = this.groundY - bh + 14; wy < this.groundY - 12; wy += 22) {
+        g.fillRect(x + 10, wy, 8, 5);
+        g.fillRect(x + 30, wy, 8, 5);
+        g.fillRect(x + 50, wy, 8, 5);
+      }
     }
+
+    g.fillStyle(0x020617, 0.8);
+    g.fillRect(0, this.groundY - 4, w, 6);
+    g.fillStyle(0x38bdf8, 0.12);
+    g.fillRect(0, this.groundY + 6, w, 3);
   }
 
   showCharacterSelect() {
@@ -332,9 +346,44 @@ class RunnerScene extends Phaser.Scene {
     body.fillRoundedRect(-22, -10, 44, 55, 18);
     body.fillCircle(0, -31, 22);
 
+    // Face + character-specific silhouette details
     body.fillStyle(0x111827, 1);
     body.fillCircle(-8, -34, 3);
     body.fillCircle(8, -34, 3);
+    body.lineStyle(2, 0x111827, 1);
+    body.lineBetween(-5, -24, 5, -24);
+    if (c.id === 'amirreza') {
+      body.fillStyle(0x1f2937, 1);
+      body.fillTriangle(-19, -45, -7, -58, -2, -44);
+      body.fillTriangle(-6, -48, 3, -60, 7, -43);
+    } else if (c.id === 'reza') {
+      body.fillStyle(0xf5d0a9, 1);
+      body.fillCircle(-13, -30, 3);
+      body.fillCircle(13, -30, 3);
+      body.fillStyle(0xf5d0a9, 1);
+      body.fillRect(-25, -13, 7, 34);
+      body.fillRect(18, -13, 7, 34);
+    } else if (c.id === 'taha') {
+      body.fillStyle(c.color, 1);
+      body.fillCircle(0, 3, 28);
+    } else if (c.id === 'mohna') {
+      body.lineStyle(5, c.accent, 1);
+      body.lineBetween(-14, -49, -20, -70);
+      body.lineBetween(14, -49, 20, -70);
+      body.strokeCircle(-20, -70, 6);
+      body.strokeCircle(20, -70, 6);
+    } else if (c.id === 'abolfazl') {
+      body.fillStyle(0xffffff, 1);
+      body.fillRect(-19, 1, 38, 22);
+      body.fillStyle(0x22c55e, 1);
+      body.fillCircle(0, 12, 7);
+    } else if (c.id === 'mohammad') {
+      body.lineStyle(5, c.accent, 1);
+      body.lineBetween(-22, 3, -40, -12);
+      body.lineBetween(22, 3, 40, -12);
+      body.fillCircle(-42, -14, 4);
+      body.fillCircle(42, -14, 4);
+    }
 
     body.lineStyle(4, c.accent, 1);
     body.strokeCircle(0, -31, 22);
@@ -342,6 +391,9 @@ class RunnerScene extends Phaser.Scene {
     body.fillStyle(c.accent, 1);
     body.fillRoundedRect(-23, 32, 18, 9, 4);
     body.fillRoundedRect(5, 32, 18, 9, 4);
+    body.lineStyle(3, 0x0f172a, 1);
+    body.lineBetween(-12, 30, -18, 47);
+    body.lineBetween(12, 30, 18, 47);
 
     group.add(body);
     return group;
@@ -428,6 +480,7 @@ class RunnerScene extends Phaser.Scene {
     const d = Math.min(dt / 1000, 0.05);
 
     this.distance += this.speed * d / 10;
+    this.worldTime += dt;
     this.speed = Math.min(780, this.speed + d * 7);
 
     this.ui.setText(`🏃 ${Math.floor(this.distance)} متر`);
@@ -444,6 +497,9 @@ class RunnerScene extends Phaser.Scene {
     }
 
     this.player.y = this.groundY - 48 + this.playerY;
+    const runBob = this.playerY === 0 ? Math.sin(this.worldTime / 85) * 3 : 0;
+    this.player.rotation = this.isSliding() ? -0.08 : Math.sin(this.worldTime / 140) * 0.025;
+    this.player.y += runBob;
 
     const sliding = this.isSliding();
     this.player.setScale(1, sliding ? 0.62 : 1);
@@ -485,6 +541,9 @@ class RunnerScene extends Phaser.Scene {
         this.coinObjs = this.coinObjs.filter((x) => x !== coin);
         continue;
       }
+
+      coin.rotation += d * 4.5;
+      coin.scale = 0.92 + Math.sin(this.worldTime / 90 + coin.x * 0.02) * 0.10;
 
       if (this.coinHitsPlayer(coin)) {
         this.collectCoin(coin);
