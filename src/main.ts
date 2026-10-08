@@ -20,7 +20,7 @@ const characters:Character[]=[
 
 class RunnerScene extends Phaser.Scene{
   selected=characters[0]; running=false; distance=0; coins=0; speed=420; lane=1; player!:Phaser.GameObjects.Container;
-  playerY=0; velocityY=0; groundY=0; obstacles:Phaser.GameObjects.Container[]=[]; coinObjs:Phaser.GameObjects.Arc[]=[];
+  playerY=0; velocityY=0; jumpStrength=13; groundY=0; obstacles:Phaser.GameObjects.Container[]=[]; coinObjs:Phaser.GameObjects.Arc[]=[];
   ui!:Phaser.GameObjects.Text; coinText!:Phaser.GameObjects.Text; missionText!:Phaser.GameObjects.Text; lastSpawn=0; lastCoin=0;
   missionSnapshot:MissionSnapshot|null=null;
   characterProgress:CharacterProgress[]=[];
@@ -124,7 +124,7 @@ class RunnerScene extends Phaser.Scene{
     if(this.progress.userId!=='guest') void startSecureRun().then(runId=>{if(this.running)this.secureRunId=runId;});
     const w=this.scale.width,h=this.scale.height;
     this.player=this.makeCharacter(this.laneX(),this.groundY-48,this.selected,1);
-    const jumpStrength=13 + ((stats?.jump ?? base.jump)-base.jump)*0.7;
+    this.jumpStrength=13 + ((stats?.jump ?? base.jump)-base.jump)*0.7;
     this.ui=this.add.text(22,20,'',{fontFamily:'Arial',fontSize:'19px',fontStyle:'bold',color:'#fff'}).setDepth(20);
     this.coinText=this.add.text(w-22,20,'🪙 0',{fontFamily:'Arial',fontSize:'19px',fontStyle:'bold',color:'#fbbf24'}).setOrigin(1,0).setDepth(20);
     this.missionText=this.add.text(w/2,54,this.missionSummary(),{fontFamily:'Arial',fontSize:'14px',color:'#cbd5e1'}).setOrigin(.5).setDepth(20).setInteractive({useHandCursor:true});
@@ -151,7 +151,7 @@ class RunnerScene extends Phaser.Scene{
   positionLaneObject(o:Phaser.GameObjects.GameObject,lane:number){o.x=this.scale.width+80; o.y=(o.y as number); (o as any).x+=lane===0?-this.scale.width/6:lane===2?this.scale.width/6:0;}
   laneX(){return this.scale.width/2+(this.lane-1)*Math.min(150,this.scale.width*.25);}
   changeLane(n:number){if(!this.running)return;this.lane=Phaser.Math.Clamp(this.lane+n,0,2);}
-  jump(){if(this.running&&this.playerY===0)this.velocityY=-jumpStrength;}
+  jump(){if(this.running&&this.playerY===0)this.velocityY=-this.jumpStrength;}
   tap(x:number,y:number){if(!this.running)return; if(y<this.scale.height*.45)this.jump();else this.changeLane(x<this.scale.width/2?-1:1);}
   async gameOver(){
     if(!this.running)return;
@@ -201,6 +201,7 @@ class RunnerScene extends Phaser.Scene{
 }
 const game=new Phaser.Game({type:Phaser.AUTO,parent:'app',width:'100%',height:'100%',scale:{mode:Phaser.Scale.RESIZE,autoCenter:Phaser.Scale.CENTER_BOTH},backgroundColor:'#07101f',scene:RunnerScene,render:{antialias:true,roundPixels:false}});
 let shopUi: ShopUi;
+let characterProgressUi: CharacterProgressUi;
 const authUi=new AuthUi((state)=>{const scene=game.scene.getScene('RunnerScene') as RunnerScene | undefined;if(scene && state.progress) scene.setProgress(state.progress);
   if(shopUi && state.progress) shopUi.setProgress(state.progress);
 });
@@ -208,4 +209,9 @@ shopUi = new ShopUi(
   () => (game.scene.getScene('RunnerScene') as RunnerScene).progress,
   (progress) => { const scene = game.scene.getScene('RunnerScene') as RunnerScene; scene.setProgress(progress); scene.persistProgress(); }
 );
-window.addEventListener('beforeunload',()=>authUi.destroy());
+characterProgressUi = new CharacterProgressUi(
+  () => (game.scene.getScene('RunnerScene') as RunnerScene).progress,
+  (progress) => { const scene = game.scene.getScene('RunnerScene') as RunnerScene; scene.setProgress(progress); scene.persistProgress(); },
+  () => { const scene = game.scene.getScene('RunnerScene') as RunnerScene; void scene.refreshCharacterProgress(); }
+);
+window.addEventListener('beforeunload',()=>{authUi.destroy();shopUi.destroy();characterProgressUi.destroy();});
