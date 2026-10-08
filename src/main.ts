@@ -1060,19 +1060,28 @@ class RunnerScene extends Phaser.Scene {
   }
 
   spawnObstaclePattern() {
-    const lanes = [0, 1, 2].filter((lane) => lane !== this.lastObstacleLane);
-    const firstLane = Phaser.Utils.Array.GetRandom(lanes) as number;
-    const makeDouble = this.obstacleCount > 4 && Math.random() < Math.min(0.34, this.stage.doubleObstacleChance);
-    const makeOverhead = this.obstacleCount > 3 && Math.random() < this.stage.overheadChance;
+    // Fair deterministic lane rhythm: the player can learn the sequence instead of
+    // getting random repeated blocks. Higher stages add two-lane patterns.
+    const rhythm = [0, 1, 2, 1, 0, 2];
+    const firstLane = rhythm[this.obstacleCount % rhythm.length];
+    const doubleAllowed = this.stage.id >= 2 && this.obstacleCount > 5;
+    const makeDouble = doubleAllowed && (
+      this.stage.id >= 3
+        ? this.obstacleCount % 4 === 1 || Math.random() < this.stage.doubleObstacleChance * 0.35
+        : this.obstacleCount % 7 === 3
+    );
+    const overheadAllowed = this.stage.id >= 2 && this.obstacleCount > 7;
+    const makeOverhead = overheadAllowed && this.obstacleCount % 5 === 2;
     const firstKind: StageObstacleKind = makeOverhead ? 'overhead' : 'ground';
 
     this.spawnObstacle(firstLane, firstKind, 0);
 
     if (makeDouble) {
-      const secondCandidates = [0, 1, 2].filter((lane) => lane !== firstLane);
-      const secondLane = Phaser.Utils.Array.GetRandom(secondCandidates) as number;
-      const secondKind: StageObstacleKind = this.stage.id >= 3 && Math.random() < this.stage.overheadChance * 0.45 ? 'overhead' : 'ground';
-      this.spawnObstacle(secondLane, secondKind, 230);
+      const pairs: Array<[number, number]> = [[0, 1], [1, 2], [0, 2]];
+      const pair = pairs[Math.floor(this.obstacleCount / 2) % pairs.length];
+      const secondLane = pair[0] === firstLane ? pair[1] : pair[0];
+      const secondKind: StageObstacleKind = this.stage.id >= 3 && this.obstacleCount % 6 === 1 ? 'overhead' : 'ground';
+      this.spawnObstacle(secondLane, secondKind, 240);
     }
   }
 
