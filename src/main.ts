@@ -988,14 +988,21 @@ class RunnerScene extends Phaser.Scene {
 
     this.player.x = Phaser.Math.Linear(this.player.x, this.laneX(), 1 - Math.exp(-12 * d));
 
-    // Runner physics: jump must actually clear ground obstacles instead of
-    // only producing a tiny visual hop. Values are tuned in world-pixels/sec.
-    this.velocityY += 1500 * d;
+    // Runner physics: tuned for a readable ~0.75s jump arc with enough clearance.
+    // Negative playerY is above the road in Phaser's coordinate system.
+    const gravity = 1450;
+    this.velocityY += gravity * d;
     this.playerY += this.velocityY * d;
 
-    if (this.playerY > 0) {
+    if (this.playerY >= 0) {
       this.playerY = 0;
       this.velocityY = 0;
+      this.coyoteUntil = this.time.now + 95;
+    }
+    if (this.jumpBufferUntil > this.time.now && this.playerY === 0) {
+      this.jumpBufferUntil = 0;
+      this.velocityY = -this.jumpStrength * 42;
+      this.playerState = 'jump';
     }
     const groundedNow = this.playerY === 0;
     if (groundedNow && !this.lastGrounded) this.emitLandingFx();
@@ -1016,11 +1023,12 @@ class RunnerScene extends Phaser.Scene {
     this.lastSpawn += dt;
     this.lastCoin += dt;
 
-    const spawnInterval = Phaser.Math.Clamp(
-      Phaser.Math.Between(this.stage.spawnMinMs, this.stage.spawnMaxMs) - this.distance * 0.025,
-      this.stage.spawnMinMs,
-      this.stage.spawnMaxMs,
-    );
+    // Spacing is distance-based, so increasing speed never silently removes
+    // the player's reaction window. A stage may become harder, but it stays playable.
+    const speedGapMs = (this.stage.minGapPx / Math.max(1, this.speed)) * 1000;
+    const reactionGapMs = this.stage.reactionMs;
+    const randomGapMs = Phaser.Math.Between(this.stage.spawnMinMs, this.stage.spawnMaxMs);
+    const spawnInterval = Math.max(speedGapMs, reactionGapMs, randomGapMs * 0.72);
     if (this.lastSpawn >= spawnInterval) {
       this.spawnObstaclePattern();
       this.lastSpawn = 0;
@@ -1169,71 +1177,98 @@ class RunnerScene extends Phaser.Scene {
   }
 
   spawnObstaclePattern() {
-    // Fair deterministic lane rhythm: the player can learn the sequence instead of
-    // getting random repeated blocks. Higher stages add two-lane patterns.
-    const rhythm = [0, 1, 2, 1, 0, 2];
+    // Readable three-lane rhythm. Each pattern explicitly leaves one lane safe.
+    const rhythms = [
+      [0, 1, 2, 1, 0, 2],
+      [1, 2, 1, 0, 1, 2],
+      [2, 1, 0, 1, 2, 0],
+    ];
+    const rhythm = rhythms[(this.stage.id - 1) % rhythms.length];
     const firstLane = rhythm[this.obstacleCount % rhythm.length];
-    const doubleAllowed = this.stage.id >= 2 && this.obstacleCount > 5;
-    const makeDouble = doubleAllowed && (
-      this.stage.id >= 3
-        ? this.obstacleCount % 4 === 1 || Math.random() < this.stage.doubleObstacleChance * 0.35
-        : this.obstacleCount % 7 === 3
-    );
-    const overheadAllowed = this.stage.id >= 2 && this.obstacleCount > 7;
-    const makeOverhead = overheadAllowed && this.obstacleCount % 5 === 2;
-    const firstKind: StageObstacleKind = makeOverhead ? 'overhead' : 'ground';
+    const doubleAllowed = this.stage.id >= 2 && this.obstacleCount > 6;
+    const makeDouble = doubleAllowed && this.obstacleCount % (this.stage.id >= 3 ? 5 : 8) === 3;
+    const overheadAllowed = this.stage.id >= 2 && this.obstacleCount > 9;
+    const makeOverhead = overheadAllowed && this.obstacleCount % (this.stage.id >= 4 ? 7 : 9) === 4;
 
-    this.spawnObstacle(firstLane, firstKind, 0);
+    this.spawnObstacle(firstLane, makeOverhead ? 'overhead' : 'ground', 0);
 
     if (makeDouble) {
-      const pairs: Array<[number, number]> = [[0, 1], [1, 2], [0, 2]];
-      const pair = pairs[Math.floor(this.obstacleCount / 2) % pairs.length];
-      const secondLane = pair[0] === firstLane ? pair[1] : pair[0];
+      // Two blocked lanes + one guaranteed safe lane. Never stack a second
+      // obstacle only 240px behind the first one.
+      const safeLane = (firstLane + 1) % 3;
+      const secondLane = [0, 1, 2].find((lane) => lane !== firstLane && lane !== safeLane) ?? ((firstLane + 2) % 3);
       const secondKind: StageObstacleKind = this.stage.id >= 3 && this.obstacleCount % 6 === 1 ? 'overhead' : 'ground';
-      this.spawnObstacle(secondLane, secondKind, 240);
+      this.spawnObstacle(secondLane, secondKind, 390);
     }
   }
 
   spawnObstacle(lane: number, kind: StageObstacleKind, xOffset: number) {
-    const obstacle = this.add.container(this.scale.width + 90 + xOffset, 0) as Obstacle;
+    const obstacle = this.add.container(this.scale.width + 110 + xOffset, 0) as Obstacle;
     obstacle.obstacleLane = lane;
     obstacle.obstacleKind = kind;
 
     const g = this.add.graphics();
+    const variant = kind === 'overhead'
+      ? 'gate'
+      : (['crate', 'cone', 'barrier', 'sign'] as const)[this.obstacleCount % 4];
+    obstacle.obstacleVariant = variant;
 
     if (kind === 'overhead') {
       obstacle.y = this.groundY - 82;
-      // Overhead gate: two posts + glowing horizontal beam.
-      g.fillStyle(0x334155, 1);
-      g.fillRoundedRect(-48, -70, 10, 88, 5);
-      g.fillRoundedRect(38, -70, 10, 88, 5);
-      g.fillStyle(0xf97316, 1);
-      g.fillRoundedRect(-42, -18, 84, 28, 8);
-      g.fillStyle(0xfef3c7, 1);
-      for (let i = -30; i <= 30; i += 20) g.fillRect(i, -11, 10, 5);
-      g.lineStyle(3, 0xfb923c, 0.55);
-      g.strokeRoundedRect(-45, -21, 90, 34, 9);
+      if (variant === 'gate') {
+        g.fillStyle(0x334155, 1);
+        g.fillRoundedRect(-48, -70, 10, 88, 5);
+        g.fillRoundedRect(38, -70, 10, 88, 5);
+        g.fillStyle(this.stage.id >= 4 ? 0xef4444 : 0xf97316, 1);
+        g.fillRoundedRect(-42, -18, 84, 28, 8);
+        g.fillStyle(0xfef3c7, 1);
+        for (let i = -30; i <= 30; i += 20) g.fillRect(i, -11, 10, 5);
+        g.lineStyle(3, 0xfb923c, 0.55);
+        g.strokeRoundedRect(-45, -21, 90, 34, 9);
+      }
     } else {
       obstacle.y = this.groundY - 42;
-      // Ground barrier: layered construction block with warning stripes.
-      g.fillStyle(0x7f1d1d, 1);
-      g.fillRoundedRect(-31, -45, 62, 90, 11);
-      g.fillStyle(0xef4444, 1);
-      g.fillRoundedRect(-27, -41, 54, 82, 9);
-      g.fillStyle(0xfef3c7, 1);
-      for (let i = -23; i <= 15; i += 19) g.fillRect(i, -28, 10, 7);
-      g.fillStyle(0x991b1b, 1);
-      g.fillRect(-23, -12, 46, 8);
-      g.fillStyle(0xfca5a5, 0.8);
-      g.fillRect(-18, 4, 36, 5);
-      g.lineStyle(3, 0xff8a8a, 0.65);
-      g.strokeRoundedRect(-30, -44, 60, 88, 11);
+      if (variant === 'crate') {
+        g.fillStyle(0x713f12, 1);
+        g.fillRoundedRect(-31, -40, 62, 80, 7);
+        g.fillStyle(0xa16207, 1);
+        g.fillRoundedRect(-26, -35, 52, 70, 5);
+        g.lineStyle(5, 0x422006, 0.8);
+        g.lineBetween(-24, -32, 24, 32);
+        g.lineBetween(24, -32, -24, 32);
+      } else if (variant === 'cone') {
+        g.fillStyle(0xf97316, 1);
+        g.fillTriangle(0, -43, -27, 38, 27, 38);
+        g.fillStyle(0xffedd5, 1);
+        g.fillRect(-19, 3, 38, 8);
+        g.fillStyle(0x9a3412, 1);
+        g.fillRoundedRect(-31, 36, 62, 9, 4);
+      } else if (variant === 'sign') {
+        g.fillStyle(0x475569, 1);
+        g.fillRect(-4, -48, 8, 48);
+        g.fillStyle(this.stage.accent, 1);
+        g.fillRoundedRect(-30, -48, 60, 38, 7);
+        g.fillStyle(0x0f172a, 0.8);
+        g.fillTriangle(-8, -29, 12, -20, -8, -11);
+      } else {
+        g.fillStyle(0x7f1d1d, 1);
+        g.fillRoundedRect(-31, -45, 62, 90, 11);
+        g.fillStyle(0xef4444, 1);
+        g.fillRoundedRect(-27, -41, 54, 82, 9);
+        g.fillStyle(0xfef3c7, 1);
+        for (let i = -23; i <= 15; i += 19) g.fillRect(i, -28, 10, 7);
+        g.fillStyle(0x991b1b, 1);
+        g.fillRect(-23, -12, 46, 8);
+        g.fillStyle(0xfca5a5, 0.8);
+        g.fillRect(-18, 4, 36, 5);
+        g.lineStyle(3, 0xff8a8a, 0.65);
+        g.strokeRoundedRect(-30, -44, 60, 88, 11);
+      }
     }
 
     obstacle.add(g);
-    obstacle.setScale(0.88);
-    this.tweens.add({ targets: obstacle, scale: 1, duration: 180, ease: 'Back.easeOut' });
-    obstacle.x = this.scale.width + 90 + xOffset;
+    obstacle.setScale(0.84);
+    this.tweens.add({ targets: obstacle, scale: 1, duration: 160, ease: 'Back.easeOut' });
     obstacle.setDepth(8);
     obstacle.setData('runnerActor', true);
     this.obstacles.push(obstacle);
@@ -1241,6 +1276,7 @@ class RunnerScene extends Phaser.Scene {
     this.lastObstacleLane = lane;
     this.lastObstacleKind = kind;
     this.lastObstacleAt = this.time.now;
+    this.lastObstacleX = obstacle.x;
   }
 
   spawnCoinPattern() {
@@ -1379,12 +1415,20 @@ class RunnerScene extends Phaser.Scene {
 
   jump() {
     if (!this.running || this.gameOverInProgress) return;
-    if (this.playerY === 0) {
-      // Y grows downward in Phaser. A negative velocity moves the runner upward.
-      // With gravity 34, the default jump reaches roughly 75px above ground.
-      this.velocityY = -this.jumpStrength * 40;
+    const grounded = this.playerY === 0;
+    const canUseCoyote = this.time.now <= this.coyoteUntil;
+    if (grounded || canUseCoyote) {
+      this.velocityY = -this.jumpStrength * 42;
+      this.playerY = Math.min(this.playerY, -1);
+      this.jumpBufferUntil = 0;
+      this.coyoteUntil = 0;
+      this.jumpHeld = true;
       this.playerState = 'jump';
       this.feedback('light');
+    } else {
+      // Queue a jump for the instant the runner lands; this removes the
+      // frustrating "pressed a little too early" feeling on mobile.
+      this.jumpBufferUntil = this.time.now + 150;
     }
   }
 
