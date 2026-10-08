@@ -867,7 +867,7 @@ class RunnerScene extends Phaser.Scene {
     return group;
   }
 
-  startGame() {
+  async startGame() {
     this.viewMode = 'game';
     this.clearActors();
     this.pausedByUser = false;
@@ -914,13 +914,13 @@ class RunnerScene extends Phaser.Scene {
     if (this.progress.userId !== 'guest') {
       const loadout: RunnerLoadout = getRunnerLoadout();
       this.secureRunPromise = startSecureRun(loadout);
-      void this.secureRunPromise.then((run) => {
-        if (!run) return;
+      const run = await this.secureRunPromise;
+      if (run) {
         clearRunnerLoadout();
         this.secureRunId = run.runId;
         this.runEffects = run.effects;
         if (run.effects.turbo) this.turboUntil = this.time.now + 8000;
-      });
+      }
     }
 
     const w = this.scale.width;
@@ -1211,13 +1211,10 @@ class RunnerScene extends Phaser.Scene {
   }
 
   private coinHitsPlayer(coin: Phaser.GameObjects.Arc) {
-    const lane = Number(coin.getData('lane') ?? 1);
-    if (lane !== this.lane) return false;
-
     const dx = Math.abs(coin.x - this.player.x);
     const dy = Math.abs(coin.y - this.player.y);
-    const radius = this.runEffects.magnet ? 138 : this.selected.id === 'taha' ? 96 : 82;
-    const vertical = this.runEffects.magnet ? 150 : 118;
+    const radius = this.runEffects.magnet ? 155 : this.selected.id === 'taha' ? 122 : 108;
+    const vertical = this.runEffects.magnet ? 165 : 132;
     return dx < radius && dy < vertical;
   }
 
@@ -1597,32 +1594,41 @@ class RunnerScene extends Phaser.Scene {
         if (reward) {
           awardedCoins = reward.awardedCoins;
           awardedXp = reward.awardedXp;
-
           this.progress = {
             ...this.progress,
             coins: reward.coins,
             xp: reward.xp,
-            bestDistance: reward.bestDistance,
+            bestDistance: Math.max(this.progress.bestDistance, reward.bestDistance),
             activeCharacterId: this.selected.id,
             updatedAt: new Date().toISOString(),
           };
-
           this.persistProgress();
           void this.refreshMissions();
         } else {
           onlineReward = false;
+          this.progress = {
+            ...this.progress,
+            coins: this.progress.coins + collectedCoins,
+            xp: this.progress.xp + awardedXp,
+            bestDistance,
+            activeCharacterId: this.selected.id,
+            updatedAt: new Date().toISOString(),
+          };
+          this.persistProgress();
         }
       } else {
         onlineReward = false;
+        this.progress = {
+          ...this.progress,
+          coins: this.progress.coins + collectedCoins,
+          xp: this.progress.xp + awardedXp,
+          bestDistance,
+          activeCharacterId: this.selected.id,
+          updatedAt: new Date().toISOString(),
+        };
+        this.persistProgress();
       }
 
-      // Always preserve a local record even if the online claim failed.
-      this.progress = {
-        ...this.progress,
-        bestDistance: Math.max(this.progress.bestDistance, finalDistance),
-        activeCharacterId: this.selected.id,
-        updatedAt: new Date().toISOString(),
-      };
       saveLocalProgress(this.progress);
     } else {
       this.progress = {
@@ -1656,7 +1662,7 @@ class RunnerScene extends Phaser.Scene {
 
     const rewardText = onlineReward
       ? `🏃 ${finalDistance} متر   🪙 +${awardedCoins}   ✨ +${awardedXp} XP`
-      : `🏃 ${finalDistance} متر   ⚠️ پاداش آنلاین ثبت نشد`;
+      : `🏃 ${finalDistance} متر   🪙 +${collectedCoins}   ✨ +${awardedXp} XP\n💾 نتیجه بازی روی دستگاه ثبت شد`;
 
     this.add
       .text(w / 2, h / 2 - 25, rewardText, {
