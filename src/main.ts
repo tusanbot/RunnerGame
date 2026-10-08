@@ -1171,6 +1171,7 @@ class RunnerScene extends Phaser.Scene {
 
       if (this.coinHitsPlayer(coin)) {
         this.collectCoin(coin);
+        continue;
       }
     }
   }
@@ -1179,9 +1180,9 @@ class RunnerScene extends Phaser.Scene {
     const sliding = this.isSliding();
     // The hitbox follows the gameplay posture, not the decorative sprite scale.
     // Sliding lowers the collision body so overhead barriers can be passed.
-    const width = sliding ? 52 : 48;
-    const height = sliding ? 34 : 78;
-    const centerY = this.groundY - (sliding ? 22 : 48) + this.playerY;
+    const width = sliding ? 58 : 54;
+    const height = sliding ? 36 : 82;
+    const centerY = this.groundY - (sliding ? 21 : 49) + this.playerY;
 
     return new Phaser.Geom.Rectangle(
       this.player.x - width / 2,
@@ -1202,7 +1203,8 @@ class RunnerScene extends Phaser.Scene {
   }
 
   private obstacleHitsPlayer(obstacle: Obstacle) {
-    if (obstacle.obstacleLane !== this.lane) return false;
+    const laneCenter = this.laneX(obstacle.obstacleLane ?? this.lane);
+    if (Math.abs(obstacle.x - laneCenter) > 90 && obstacle.obstacleLane !== this.lane) return false;
 
     // Overhead barriers are specifically the slide mechanic: standing/jumping
     // into them is dangerous, while a low slide passes underneath.
@@ -1217,9 +1219,9 @@ class RunnerScene extends Phaser.Scene {
 
     const dx = Math.abs(coin.x - this.player.x);
     const dy = Math.abs(coin.y - this.player.y);
-
-    const tahaBoost = this.selected.id === 'taha' ? 1.35 : 1;
-    return dx < (this.runEffects.magnet ? 130 : 72) * tahaBoost && dy < (this.runEffects.magnet ? 130 : 105) * tahaBoost;
+    const radius = this.runEffects.magnet ? 138 : this.selected.id === 'taha' ? 96 : 82;
+    const vertical = this.runEffects.magnet ? 150 : 118;
+    return dx < radius && dy < vertical;
   }
 
   private collectCoin(coin: Phaser.GameObjects.Arc) {
@@ -1366,14 +1368,14 @@ class RunnerScene extends Phaser.Scene {
           ? 112
           : 72;
       const coin = this.add.circle(
-        this.scale.width + 70 + i * (pattern === 'burst' ? 48 : 58),
+        this.scale.width + 70 + i * (pattern === 'burst' ? 52 : 64),
         this.groundY - height,
-        15,
+        18,
         0xfbbf24,
       );
 
       coin.setStrokeStyle(4, 0xf59e0b);
-      const coinCore = this.add.circle(coin.x, coin.y, 7, 0xfff7b2, 0.95).setDepth(8);
+      const coinCore = this.add.circle(coin.x, coin.y, 8, 0xfff7b2, 0.95).setDepth(8);
       coinCore.setData('coinCore', coin);
       coinCore.setData('runnerActor', true);
       coin.setData('coinCore', coinCore);
