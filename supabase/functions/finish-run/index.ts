@@ -42,6 +42,15 @@ Deno.serve(async (req) => {
       return Response.json({ error: 'نتیجه بازی خارج از محدوده مجاز است.' }, { status: 400, headers: corsHeaders });
     }
 
+    // Fresh accounts may not have visited the character-upgrade screen yet.
+    // Seed their character rows here so a valid first run can still be claimed.
+    await admin
+      .from('runner_character_progress')
+      .upsert(
+        { user_id: userData.user.id, character_id: 'amirreza', unlocked: true },
+        { onConflict: 'user_id,character_id', ignoreDuplicates: true },
+      );
+
     const { data: characterState, error: characterError } = await admin
       .from('runner_character_progress')
       .select('unlocked')
