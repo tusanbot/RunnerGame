@@ -410,83 +410,157 @@ class RunnerScene extends Phaser.Scene {
     const stage = this.stage ?? RUNNER_STAGES[0];
     g.clear();
 
-    const skyTop = stage.id === 1 ? 0x102b4d : stage.id === 2 ? 0x26344a : stage.id === 3 ? 0x100d2b : 0x2b0b16;
-    const skyBottom = stage.id === 1 ? 0x285c72 : stage.id === 2 ? 0x1c2638 : stage.id === 3 ? 0x30145c : 0x551522;
-    g.fillGradientStyle(skyTop, skyTop, skyBottom, skyBottom, 1);
-    g.fillRect(0, 0, w, this.groundY + 4);
+    // Layered sky gradient: soft atmospheric depth instead of a flat background.
+    const sky = [
+      [0x07111f, 0x14243b],
+      [0x172235, 0x3b5269],
+      [0x090b1f, 0x241448],
+      [0x210b13, 0x5b2024],
+    ][stage.id - 1] ?? [0x07111f, 0x14243b];
+    g.fillGradientStyle(sky[0], sky[0], sky[1], sky[1], 1);
+    g.fillRect(0, 0, w, this.groundY);
 
-    // Far parallax silhouettes.
-    for (let i = 0; i < 22; i++) {
-      const x = ((i * 173 + stage.id * 91) % (w + 120)) - 60;
-      const bh = 55 + ((i * 37 + stage.id * 19) % 130);
-      const bw = 42 + ((i * 23) % 58);
-      const colors = [0x17233a, 0x1d2b45, 0x202b3e, 0x26334b];
-      g.fillStyle(colors[i % colors.length], 0.95);
+    // Sun/moon and atmospheric haze.
+    const celestialX = stage.id === 3 ? w * 0.76 : w * 0.18;
+    const celestialY = stage.id === 3 ? h * 0.18 : h * 0.22;
+    const celestialColor = stage.id === 3 ? 0xdbeafe : stage.id === 4 ? 0xfda4af : 0xffd58a;
+    g.fillStyle(celestialColor, 0.08);
+    g.fillCircle(celestialX, celestialY, 68);
+    g.fillStyle(celestialColor, 0.16);
+    g.fillCircle(celestialX, celestialY, 46);
+    g.fillStyle(celestialColor, 0.95);
+    g.fillCircle(celestialX, celestialY, 27);
+
+    // Thin clouds / haze bands create scale and depth.
+    g.fillStyle(0xe2e8f0, stage.id === 3 ? 0.035 : 0.07);
+    for (let i = 0; i < 5; i++) {
+      const x = ((i * 241 + stage.id * 83) % (w + 180)) - 90;
+      const y = 72 + (i % 3) * 48;
+      g.fillEllipse(x, y, 150 + (i % 2) * 60, 24);
+      g.fillEllipse(x + 45, y - 7, 95, 30);
+    }
+
+    // Far skyline: varied widths, heights and rooftop silhouettes.
+    for (let i = 0; i < 24; i++) {
+      const x = ((i * 151 + stage.id * 73) % (w + 130)) - 65;
+      const bh = 58 + ((i * 43 + stage.id * 31) % 150);
+      const bw = 34 + ((i * 29) % 76);
+      const depth = i % 3;
+      const buildingColor = depth === 0 ? 0x111c2f : depth === 1 ? 0x17243a : 0x1d2b40;
+      g.fillStyle(buildingColor, 0.96);
       g.fillRect(x, this.groundY - bh, bw, bh);
-      if (stage.id >= 3) {
-        g.fillStyle(stage.id === 3 ? 0xfbbf24 : 0xfb7185, 0.28);
-        for (let wy = this.groundY - bh + 14; wy < this.groundY - 12; wy += 24) {
-          g.fillRect(x + 8, wy, 7, 5);
-          if (bw > 60) g.fillRect(x + bw - 17, wy, 7, 5);
+
+      // Rooftop details.
+      if (i % 5 === 0) {
+        g.fillRect(x + bw * 0.35, this.groundY - bh - 16, 4, 16);
+        g.fillCircle(x + bw * 0.37, this.groundY - bh - 19, 4);
+      }
+      if (i % 7 === 0) g.fillRect(x + 5, this.groundY - bh - 5, bw - 10, 4);
+
+      // Windows become warm in city stages and warning-red in the danger zone.
+      const windowColor = stage.id === 3 ? 0xfbbf24 : stage.id === 4 ? 0xfb7185 : 0x93c5fd;
+      for (let wy = this.groundY - bh + 15; wy < this.groundY - 12; wy += 23) {
+        for (let wx = x + 8; wx < x + bw - 8; wx += 20) {
+          if (((Math.floor(wx) + Math.floor(wy) + i) % 5) < 3) {
+            g.fillStyle(windowColor, stage.id >= 3 ? 0.42 : 0.22);
+            g.fillRect(wx, wy, 7, 5);
+          }
         }
       }
     }
 
-    // Stage-specific landmarks make each zone visually distinct.
+    // Foreground landmarks by zone.
     if (stage.id === 1) {
-      g.fillStyle(0x14532d, 0.85);
-      for (let i = 0; i < 7; i++) {
-        const x = 30 + i * (w / 6.5);
-        g.fillRect(x - 3, this.groundY - 92, 6, 92);
-        g.fillCircle(x, this.groundY - 105, 22);
-        g.fillCircle(x - 15, this.groundY - 94, 17);
-        g.fillCircle(x + 15, this.groundY - 94, 17);
+      // Trees + street lamps.
+      for (let i = 0; i < 6; i++) {
+        const x = 24 + i * (w / 5.4);
+        g.fillStyle(0x3f2b1f, 1);
+        g.fillRect(x - 3, this.groundY - 78, 6, 78);
+        g.fillStyle(0x14532d, 0.95);
+        g.fillCircle(x, this.groundY - 99, 23);
+        g.fillCircle(x - 15, this.groundY - 88, 17);
+        g.fillCircle(x + 15, this.groundY - 88, 17);
+        g.fillStyle(0xfde68a, 0.5);
+        g.fillCircle(x + 14, this.groundY - 111, 4);
       }
-      g.fillStyle(0x38bdf8, 0.18);
-      g.fillRect(0, this.groundY - 118, w, 2);
     } else if (stage.id === 2) {
+      // Highway gantry and reflectors.
       g.fillStyle(0x475569, 0.95);
-      g.fillRect(0, this.groundY - 92, w, 7);
-      for (let i = 0; i < 8; i++) {
-        const x = 30 + i * (w / 7);
-        g.fillRect(x, this.groundY - 90, 5, 90);
-        g.fillStyle(0xf59e0b, 0.65);
-        g.fillRect(x - 3, this.groundY - 84, 11, 4);
-        g.fillStyle(0x475569, 0.95);
+      g.fillRect(w * 0.08, this.groundY - 142, 7, 142);
+      g.fillRect(w * 0.92 - 7, this.groundY - 142, 7, 142);
+      g.fillRect(w * 0.08, this.groundY - 142, w * 0.84, 7);
+      for (let i = 0; i < 10; i++) {
+        const x = w * 0.1 + i * (w * 0.8 / 9);
+        g.fillStyle(i % 2 ? 0xf59e0b : 0xe2e8f0, 0.7);
+        g.fillRect(x, this.groundY - 133, 10, 4);
       }
-      g.fillStyle(0x64748b, 0.9);
-      g.fillRect(w * 0.08, this.groundY - 150, w * 0.84, 5);
-      g.fillRect(w * 0.08, this.groundY - 150, 5, 65);
-      g.fillRect(w * 0.92 - 5, this.groundY - 150, 5, 65);
+      g.fillStyle(0x64748b, 0.7);
+      g.fillRect(0, this.groundY - 72, w, 5);
     } else if (stage.id === 3) {
-      g.fillStyle(0x7c3aed, 0.16);
-      for (let i = 0; i < 8; i++) {
-        const x = 30 + i * (w / 7);
-        g.fillRect(x, this.groundY - 180 - (i % 3) * 35, 3, 180);
-        g.fillStyle(i % 2 ? 0x22d3ee : 0xf472b6, 0.5);
-        g.fillRect(x - 18, this.groundY - 130 - (i % 3) * 22, 36, 5);
+      // Neon storefronts and signs.
+      for (let i = 0; i < 7; i++) {
+        const x = 18 + i * (w / 6.2);
+        const neon = i % 2 ? 0x22d3ee : 0xf472b6;
+        g.fillStyle(0x020617, 0.7);
+        g.fillRoundedRect(x, this.groundY - 118 - (i % 2) * 24, 64, 34, 6);
+        g.lineStyle(2, neon, 0.7);
+        g.strokeRoundedRect(x, this.groundY - 118 - (i % 2) * 24, 64, 34, 6);
+        g.fillStyle(neon, 0.28);
+        g.fillRect(x + 10, this.groundY - 108 - (i % 2) * 24, 44, 4);
       }
-      g.fillStyle(0x0f172a, 0.5);
-      g.fillRect(0, this.groundY - 205, w, 28);
-      g.fillStyle(0xf472b6, 0.5);
-      g.fillRect(0, this.groundY - 205, w, 2);
     } else {
-      g.fillStyle(0x451a03, 0.9);
-      for (let i = 0; i < 9; i++) {
-        const x = 20 + i * (w / 8);
-        g.fillRect(x, this.groundY - 135, 5, 135);
-        g.fillStyle(0xef4444, 0.55);
-        g.fillRect(x - 9, this.groundY - 120, 23, 4);
-        g.fillStyle(0x451a03, 0.9);
+      // Industrial zone: towers, pipes and warning lights.
+      for (let i = 0; i < 7; i++) {
+        const x = 20 + i * (w / 6.3);
+        g.fillStyle(0x3f1d24, 0.95);
+        g.fillRect(x, this.groundY - 128, 7, 128);
+        g.fillRect(x + 28, this.groundY - 94, 7, 94);
+        g.lineStyle(3, 0x7f1d1d, 0.8);
+        g.lineBetween(x, this.groundY - 105, x + 35, this.groundY - 70);
+        g.fillStyle(0xef4444, 0.7);
+        g.fillCircle(x + 3, this.groundY - 138, 5);
       }
-      g.fillStyle(0xf43f5e, 0.13);
-      g.fillRect(0, this.groundY - 240, w, 110);
+      g.fillStyle(0xef4444, 0.08);
+      g.fillRect(0, this.groundY - 210, w, 95);
     }
 
-    g.fillStyle(0x0b1220, 0.96);
-    g.fillRect(0, this.groundY, w, h - this.groundY);
-    g.fillStyle(stage.id === 4 ? 0x7f1d1d : stage.id === 2 ? 0x334155 : 0x172554, 0.7);
-    g.fillRect(0, this.groundY - 3, w, 7);
+    // Road: dark asphalt, shoulder, lane separators and perspective markings.
+    g.fillStyle(0x080d16, 1);
+    g.fillRect(0, this.groundY - 2, w, h - this.groundY + 2);
+    g.fillStyle(stage.id === 4 ? 0x7f1d1d : stage.id === 3 ? 0x312e81 : 0x334155, 0.7);
+    g.fillRect(0, this.groundY - 5, w, 7);
+    g.fillStyle(0x0f172a, 0.9);
+    g.fillRect(0, this.groundY + 2, w, 5);
+
+    // Three-lane perspective.
+    g.lineStyle(3, 0xe2e8f0, 0.26);
+    for (let i = 1; i < 3; i++) {
+      const topX = this.laneX(i) - 75;
+      const bottomX = this.laneX(i) - 75;
+      g.lineBetween(topX, this.groundY, bottomX - (i === 1 ? 28 : -28), h);
+    }
+    for (let i = 0; i < 11; i++) {
+      const t = i / 11;
+      const y = this.groundY + 14 + t * (h - this.groundY - 14);
+      const half = 26 + t * w * 0.43;
+      g.lineStyle(2, stage.id === 3 ? 0x818cf8 : 0x94a3b8, 0.18 + t * 0.22);
+      g.lineBetween(w / 2 - half, y, w / 2 + half, y);
+    }
+
+    // Roadside lights / reflective posts.
+    for (let i = 0; i < 8; i++) {
+      const x = i % 2 === 0 ? 18 : w - 18;
+      const y = this.groundY - 22 - (i % 4) * 6;
+      g.fillStyle(0x94a3b8, 0.75);
+      g.fillRect(x - 2, y, 4, 24);
+      g.fillStyle(stage.id === 4 ? 0xfb7185 : 0xfef3c7, 0.8);
+      g.fillCircle(x, y - 3, 5);
+    }
+
+    // Soft foreground vignette.
+    g.fillStyle(0x020617, 0.18);
+    g.fillRect(0, 0, 18, h);
+    g.fillRect(w - 18, 0, 18, h);
   }
 
   createSpeedLines() {
