@@ -85,7 +85,8 @@ export const RUNNER_STAGES: RunnerStage[] = [
 ];
 
 export function getRunnerStage(distance: number): RunnerStage {
-  return RUNNER_STAGES.reduce((current, stage) =>
-    distance >= stage.startDistance ? stage : current,
-  , RUNNER_STAGES[0]);
+  return RUNNER_STAGES.reduce(
+    (current, stage) => (distance >= stage.startDistance ? stage : current),
+    RUNNER_STAGES[0],
+  );
 }
