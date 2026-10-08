@@ -91,6 +91,9 @@ class RunnerScene extends Phaser.Scene {
   stageBadge!: Phaser.GameObjects.Container;
   stageToast?: Phaser.GameObjects.Container;
   stageAtmosphere!: Phaser.GameObjects.Rectangle;
+  menuButton?: Phaser.GameObjects.Container;
+  pauseButton?: Phaser.GameObjects.Container;
+  navHint?: Phaser.GameObjects.Text;
 
   progress: PlayerProgress =
     loadLocalProgress() ??
@@ -515,6 +518,7 @@ class RunnerScene extends Phaser.Scene {
   showCharacterSelect() {
     this.running = false;
     this.clearActors();
+    this.createNavigation('character');
 
     const w = this.scale.width;
     const h = this.scale.height;
@@ -655,11 +659,19 @@ class RunnerScene extends Phaser.Scene {
   }
 
   makeCharacter(x: number, y: number, c: Character, scale = 1) {
+    const silhouetteScale: Record<string, number> = {
+      amirreza: 0.92,
+      reza: 1.04,
+      taha: 1.12,
+      mohna: 0.82,
+      abolfazl: 0.96,
+      mohammad: 0.94,
+    };
     const group = this.add.container(x, y).setScale(scale).setData('runnerActor', true);
-    const shadow = this.add.ellipse(0, 48, 52, 13, 0x020617, 0.32);
+    const shadow = this.add.ellipse(0, 48, c.id === 'taha' ? 62 : 52, 13, 0x020617, 0.32);
     const sprite = this.add.image(0, 0, `character-${c.id}`)
       .setOrigin(0.5, 0.64)
-      .setScale(0.72);
+      .setScale(0.72 * (silhouetteScale[c.id] ?? 1));
 
     group.add([shadow, sprite]);
     group.setData('sprite', sprite);
@@ -843,7 +855,9 @@ class RunnerScene extends Phaser.Scene {
 
     this.player.x = Phaser.Math.Linear(this.player.x, this.laneX(), 1 - Math.exp(-12 * d));
 
-    this.velocityY += 32 * d;
+    // Runner physics: jump must actually clear ground obstacles instead of
+    // only producing a tiny visual hop. Values are tuned in world-pixels/sec.
+    this.velocityY += 34 * d;
     this.playerY += this.velocityY * d;
 
     if (this.playerY > 0) {
@@ -941,9 +955,12 @@ class RunnerScene extends Phaser.Scene {
   }
 
   private playerRect() {
-    const width = this.isSliding() ? 48 : 44;
-    const height = this.isSliding() ? 36 : 78;
-    const centerY = this.groundY - 48 + this.playerY - (this.isSliding() ? 0 : 2);
+    const sliding = this.isSliding();
+    // The hitbox follows the gameplay posture, not the decorative sprite scale.
+    // Sliding lowers the collision body so overhead barriers can be passed.
+    const width = sliding ? 52 : 48;
+    const height = sliding ? 34 : 78;
+    const centerY = this.groundY - (sliding ? 22 : 48) + this.playerY;
 
     return new Phaser.Geom.Rectangle(
       this.player.x - width / 2,
@@ -966,10 +983,11 @@ class RunnerScene extends Phaser.Scene {
   private obstacleHitsPlayer(obstacle: Obstacle) {
     if (obstacle.obstacleLane !== this.lane) return false;
 
-    const playerRect = this.playerRect();
-    const obstacleRect = this.obstacleRect(obstacle);
+    // Overhead barriers are specifically the slide mechanic: standing/jumping
+    // into them is dangerous, while a low slide passes underneath.
+    if (obstacle.obstacleKind === 'overhead' && this.isSliding()) return false;
 
-    return Phaser.Geom.Intersects.RectangleToRectangle(playerRect, obstacleRect);
+    return Phaser.Geom.Intersects.RectangleToRectangle(this.playerRect(), this.obstacleRect(obstacle));
   }
 
   private coinHitsPlayer(coin: Phaser.GameObjects.Arc) {
@@ -1185,14 +1203,18 @@ class RunnerScene extends Phaser.Scene {
   jump() {
     if (!this.running || this.gameOverInProgress) return;
     if (this.playerY === 0) {
-      this.velocityY = -this.jumpStrength * 2.1;
+      // ~76px peak with the default gravity: enough to clear a ground obstacle.
+      this.velocityY = -this.jumpStrength * 5.5;
+      this.playerState = 'jump';
       this.feedback('light');
     }
   }
 
   slide() {
     if (!this.running || this.gameOverInProgress || this.playerY !== 0) return;
-    this.slideUntil = this.time.now + 520;
+    this.slideUntil = this.time.now + 620;
+    this.playerState = 'slide';
+    this.feedback('light');
   }
 
   isSliding() {
@@ -1348,24 +1370,94 @@ class RunnerScene extends Phaser.Scene {
     b.on('pointerdown', () => this.startGame());
   }
 
+  createNavigation(mode: 'character' | 'game') {
+    this.menuButton?.destroy();
+    this.pauseButton?.destroy();
+    this.navHint?.destroy();
+
+    const makeButton = (x: number, y: number, width: number, label: string, color: number, onClick: () => void) => {
+      const panel = this.add.rectangle(x, y, width, 42, color, 0.92)
+        .setOrigin(0.5)
+        .setStrokeStyle(1, 0xffffff, 0.22)
+        .setInteractive({ useHandCursor: true })
+        .setDepth(60)
+        .setData('runnerActor', true);
+      const text = this.add.text(x, y, label, {
+        fontFamily: 'Arial', fontSize: '14px', fontStyle: 'bold', color: '#fff',
+      }).setOrigin(0.5).setDepth(61).setData('runnerActor', true);
+      panel.on('pointerover', () => panel.setScale(1.04));
+      panel.on('pointerout', () => panel.setScale(1));
+      panel.on('pointerdown', onClick);
+      const group = this.add.container(0, 0, [panel, text]).setData('runnerActor', true);
+      group.setDepth(60);
+      return group;
+    };
+
+    this.menuButton = makeButton(18, 26, 112, '🏠 منوی اصلی', 0x1e293b, () => this.showMainMenu());
+    if (mode === 'game') {
+      this.pauseButton = makeButton(this.scale.width - 18, 26, 112, '⏸ مکث', 0x334155, () => this.togglePause());
+      this.menuButton.setDepth(60);
+      this.pauseButton.setDepth(60);
+    }
+  }
+
+  showMainMenu() {
+    this.running = false;
+    this.gameOverInProgress = false;
+    this.stageBadge?.setVisible(false);
+    this.clearActors();
+
+    const w = this.scale.width;
+    const h = this.scale.height;
+    const compact = w < 620;
+    const overlay = this.add.rectangle(w / 2, h / 2, w, h, 0x020617, 0.88)
+      .setDepth(50).setData('runnerActor', true);
+    const title = this.add.text(w / 2, h * 0.20, 'RUNNER LEGENDS', {
+      fontFamily: 'Arial', fontSize: compact ? '30px' : '38px', fontStyle: 'bold', color: '#fff',
+      stroke: '#020617', strokeThickness: 7,
+    }).setOrigin(0.5).setDepth(51).setData('runnerActor', true);
+    const subtitle = this.add.text(w / 2, h * 0.27, 'دونده‌ی خودت را بساز و رکورد بزن', {
+      fontFamily: 'Arial', fontSize: '16px', color: '#c4b5fd', fontStyle: 'bold',
+    }).setOrigin(0.5).setDepth(51).setData('runnerActor', true);
+
+    const buttons: Array<[string, number, () => void]> = [
+      ['▶️ شروع بازی', 0x7c3aed, () => this.showCharacterSelect()],
+      ['⭐ شخصیت‌ها و ارتقا', 0x0f766e, () => void characterProgressUi?.open()],
+      ['🛒 فروشگاه', 0xb45309, () => document.querySelector<HTMLButtonElement>('.runner-shop-open')?.click()],
+      ['🏆 رتبه‌بندی', 0x1d4ed8, () => document.querySelector<HTMLButtonElement>('.runner-leaderboard-open')?.click()],
+    ];
+    buttons.forEach(([label, color, onClick], index) => {
+      const y = h * 0.37 + index * (compact ? 56 : 62);
+      const b = this.add.rectangle(w / 2, y, Math.min(310, w - 44), 48, color, 0.94)
+        .setStrokeStyle(1, 0xffffff, 0.24).setInteractive({ useHandCursor: true }).setDepth(51).setData('runnerActor', true);
+      const t = this.add.text(w / 2, y, label, { fontFamily: 'Arial', fontSize: '16px', fontStyle: 'bold', color: '#fff' })
+        .setOrigin(0.5).setDepth(52).setData('runnerActor', true);
+      b.on('pointerover', () => b.setScale(1.035));
+      b.on('pointerout', () => b.setScale(1));
+      b.on('pointerdown', onClick);
+      void t;
+    });
+
+    this.add.text(w / 2, h - 48, `🪙 ${this.progress.coins.toLocaleString('fa-IR')} سکه  •  ${this.progress.displayName}`, {
+      fontFamily: 'Arial', fontSize: '13px', color: '#94a3b8', fontStyle: 'bold',
+    }).setOrigin(0.5).setDepth(51).setData('runnerActor', true);
+  }
+
   clearActors() {
     this.obstacles.forEach((o) => o.destroy());
     this.coinObjs.forEach((o) => o.destroy());
     this.obstacles = [];
     this.coinObjs = [];
 
-    // Only destroy temporary runner UI/actors. Persistent scene chrome such as
-    // stageBadge and stageAtmosphere must survive between character selection
-    // and gameplay.
     [...this.children.list]
       .filter((o) => {
         const object = o as Phaser.GameObjects.GameObject;
-        if (object.getData?.('persistentUI') === true) return false;
-        return object.getData?.('runnerActor') === true
-          || object instanceof Phaser.GameObjects.Text
-          || object instanceof Phaser.GameObjects.Rectangle;
+        return object.getData?.('runnerActor') === true;
       })
       .forEach((o) => o.destroy());
+
+    this.stageToast?.destroy();
+    this.stageToast = undefined;
   }
 }
 
